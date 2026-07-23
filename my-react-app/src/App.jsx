@@ -1,23 +1,16 @@
 import React, { useState } from 'react';
 import LoginScreen from "./components/LoginScreen";
 import SignupScreen from "./components/SignupScreen";
-import StudentDashbord from "./components/Dashbord";        // ✅ Changed Dashbord → Dashboard
+import StudentDashboard from "./components/Dashboard";        // ✅ CORRECT
 import PatientDataInput from "./components/Patientdatainput";
 import RiskAssessmentScreen from "./components/Riskassessmentscreen";
 import DosageEstimationScreen from "./components/Dosageestimationscreen";
 import ReportSummaryScreen from "./components/Reportsummaryscreen";
-import ProfileScreen from "./components/profilescreen";       // ✅ Changed ProfileScreen → profilescreen
+import ProfileScreen from "./components/profilescreen";       // ✅ CORRECT
 import AdminPanel from "./components/adminpanel";
 import AssessmentHistory from "./components/AssessmentHistory";
 import PatientDetailsView from "./components/PatientDetailsView";
 import EditAssessment from "./components/EditAssessment";
-
-/*
-  SCREEN KEYS:
-  'login' | 'signup' | 'dashboard' | 'patientInput' |
-  'riskAssessment' | 'dosageEstimation' | 'report' | 'profile' | 'admin' |
-  'history' | 'patientDetails' | 'editAssessment'
-*/
 
 const App = () => {
   const [screen, setScreen] = useState('login');
@@ -32,7 +25,7 @@ const App = () => {
     <>
       {screen === 'login'            && <LoginScreen            onLoginSuccess={() => go('dashboard')}           onSwitchToSignup={() => go('signup')} />}
       {screen === 'signup'           && <SignupScreen           onSwitchToLogin={() => go('login')} />}
-      {screen === 'dashbord'        && <StudentDashbord       onLogout={() => go('login')}                     onNavigate={go} />}
+      {screen === 'dashboard'        && <StudentDashboard       onLogout={() => go('login')}                     onNavigate={go} />}
       {screen === 'patientInput'     && <PatientDataInput       onSaveAndContinue={() => go('riskAssessment')}   onNavigate={go} />}
       {screen === 'riskAssessment'   && <RiskAssessmentScreen   onBack={() => go('patientInput')}                onContinue={() => go('dosageEstimation')} onNavigate={go} />}
       {screen === 'dosageEstimation' && <DosageEstimationScreen onBack={() => go('riskAssessment')}              onGenerateReport={() => go('report')}     onNavigate={go} />}
