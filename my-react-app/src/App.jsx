@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import LoginScreen from "./components/LoginScreen";
 import SignupScreen from "./components/SignupScreen";
-import StudentDashboard from "./components/Dashboard";  // ✅ Changed to Dashboard
+import StudentDashboard from "./components/Dashboard";        // ✅ Changed Dashbord → Dashboard
 import PatientDataInput from "./components/Patientdatainput";
 import RiskAssessmentScreen from "./components/Riskassessmentscreen";
 import DosageEstimationScreen from "./components/Dosageestimationscreen";
 import ReportSummaryScreen from "./components/Reportsummaryscreen";
-import ProfileScreen from "./components/ProfileScreen";  // ✅ Changed to ProfileScreen
+import ProfileScreen from "./components/profilescreen";       // ✅ Changed ProfileScreen → profilescreen
 import AdminPanel from "./components/adminpanel";
 import AssessmentHistory from "./components/AssessmentHistory";
 import PatientDetailsView from "./components/PatientDetailsView";
