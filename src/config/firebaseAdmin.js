@@ -1,21 +1,27 @@
-// src/config/firebaseAdmin.js
 const admin = require('firebase-admin');
-const path = require('path');
-const fs = require('fs');
 
-const keyPath = path.join(__dirname, 'serviceAccountKey.json');
+// Try to load from environment variable first
+let serviceAccount;
 
-if (!fs.existsSync(keyPath)) {
-  console.error('❌ Missing src/config/serviceAccountKey.json — download it from Firebase Console > Project Settings > Service Accounts, and place it there.');
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  try {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    console.log('✅ Firebase: Loaded from environment variable');
+  } catch (error) {
+    console.error('❌ Failed to parse FIREBASE_SERVICE_ACCOUNT:', error.message);
+    process.exit(1);
+  }
+} else {
+  console.error('❌ FIREBASE_SERVICE_ACCOUNT environment variable not set');
   process.exit(1);
 }
 
-const serviceAccount = require('./serviceAccountKey.json');
+// Initialize Firebase Admin
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  projectId: serviceAccount.project_id,
+});
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-}
+console.log('✅ Firebase Admin initialized successfully');
 
 module.exports = admin;
