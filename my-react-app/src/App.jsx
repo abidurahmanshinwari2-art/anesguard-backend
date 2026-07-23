@@ -6,7 +6,7 @@ import PatientDataInput        from './components/Patientdatainput';
 import RiskAssessmentScreen    from './components/Riskassessmentscreen';
 import DosageEstimationScreen  from './components/Dosageestimationscreen';
 import ReportSummaryScreen     from './components/Reportsummaryscreen';
-import ProfileScreen           from './components/ProfileScreen';
+import ProfileScreen           from './components/profileScreen';
 import AdminPanel              from './components/adminpanel';
 import AssessmentHistory       from './components/AssessmentHistory';
 import PatientDetailsView      from './components/PatientDetailsView';
