@@ -42,7 +42,7 @@ const App = () => {
       {screen === 'riskAssessment'   && <RiskAssessmentScreen   onBack={() => go('patientInput')}                onContinue={() => go('dosageEstimation', { id: params.id })} onNavigate={go} assessmentId={params.id} />}
       {screen === 'dosageEstimation' && <DosageEstimationScreen onBack={() => go('riskAssessment', { id: params.id })} onGenerateReport={() => go('report', { id: params.id })}     onNavigate={go} assessmentId={params.id} />}
       {screen === 'report'           && <ReportSummaryScreen    onBackToDashboard={() => go('dashboard')}        onNavigate={go} assessmentId={params.id} />}
-      {screen === 'profile'          && <ProfileScreen          onNavigate={go} />}
+      {screen === 'Profile'          && <ProfileScreen          onNavigate={go} />}
       {screen === 'admin'            && <AdminPanel             onNavigate={go} />}
       {screen === 'history'          && <AssessmentHistory      onNavigate={go} />}
       {screen === 'patientDetails'   && <PatientDetailsView     onNavigate={go} patientId={params.id} />}
