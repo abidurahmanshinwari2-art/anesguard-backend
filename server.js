@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const connectDB = require('./src/config/database');
+const connectDB = require('./src/config/db');
 
 // ✅ Load Firebase Admin (this will use environment variable)
 require('./src/config/firebaseAdmin');
