@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import LoginScreen from "./components/LoginScreen";
 import SignupScreen from "./components/SignupScreen";
-import StudentDashboard from "./components/Dashboard";        // ✅ Changed Dashbord → Dashboard
+import StudentDashbord from "./components/Dashbord";        // ✅ Changed Dashbord → Dashboard
 import PatientDataInput from "./components/Patientdatainput";
 import RiskAssessmentScreen from "./components/Riskassessmentscreen";
 import DosageEstimationScreen from "./components/Dosageestimationscreen";
@@ -32,7 +32,7 @@ const App = () => {
     <>
       {screen === 'login'            && <LoginScreen            onLoginSuccess={() => go('dashboard')}           onSwitchToSignup={() => go('signup')} />}
       {screen === 'signup'           && <SignupScreen           onSwitchToLogin={() => go('login')} />}
-      {screen === 'dashboard'        && <StudentDashboard       onLogout={() => go('login')}                     onNavigate={go} />}
+      {screen === 'dashbord'        && <StudentDashbord       onLogout={() => go('login')}                     onNavigate={go} />}
       {screen === 'patientInput'     && <PatientDataInput       onSaveAndContinue={() => go('riskAssessment')}   onNavigate={go} />}
       {screen === 'riskAssessment'   && <RiskAssessmentScreen   onBack={() => go('patientInput')}                onContinue={() => go('dosageEstimation')} onNavigate={go} />}
       {screen === 'dosageEstimation' && <DosageEstimationScreen onBack={() => go('riskAssessment')}              onGenerateReport={() => go('report')}     onNavigate={go} />}
