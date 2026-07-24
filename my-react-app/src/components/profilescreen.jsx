@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sidebar } from './Sidebar';
+import { Sidebar } from './sidebar';
 import { User, Mail, Phone, Building, Calendar, Lock, Edit2, Save, X, Camera, Trash2, Upload } from 'lucide-react';
 import { auth, updateProfile, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from '../firebase/config';
 import { getMe, updateMe } from '../api/users';

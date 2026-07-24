@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sidebar } from './Sidebar';
+import { Sidebar } from './sidebar';
 import { createAssessment } from '../api/assessments';
 
 const medicalHistoryOptions = [

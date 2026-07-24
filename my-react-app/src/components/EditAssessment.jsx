@@ -1,6 +1,6 @@
 // src/components/EditAssessment.jsx
 import React, { useState, useEffect } from 'react';
-import { Sidebar } from './Sidebar';
+import { Sidebar } from './sidebar';
 import { ArrowLeft, Save, X, AlertCircle } from 'lucide-react';
 import { getAssessmentById, updateAssessment } from '../api/assessments';
 

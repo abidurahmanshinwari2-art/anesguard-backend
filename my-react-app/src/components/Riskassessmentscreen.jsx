@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sidebar } from './Sidebar';
+import { Sidebar } from './sidebar';
 import { getAssessmentById } from '../api/assessments';
 
 const dotColor = { red: '#ef4444', yellow: '#f59e0b', green: '#22c55e' };

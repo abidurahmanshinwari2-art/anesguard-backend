@@ -1,6 +1,6 @@
 // src/components/AssessmentHistory.jsx
 import React, { useState, useEffect } from 'react';
-import { Sidebar } from './Sidebar';
+import { Sidebar } from './sidebar';
 import { Search, Filter, Download, Printer, Eye, Edit, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { getAssessments, deleteAssessment, bulkDeleteAssessments } from '../api/assessments';
 

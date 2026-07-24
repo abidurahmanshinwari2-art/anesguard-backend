@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sidebar } from './Sidebar';
+import { Sidebar } from './sidebar';
 import { getAssessmentById, saveDosage } from '../api/assessments';
 
 const drugOptions = [
