@@ -1,6 +1,6 @@
 // src/components/PatientDetailsView.jsx
 import React, { useState, useEffect } from 'react';
-import { Sidebar } from './Sidebar';
+import { Sidebar } from './sidebar';
 import { ArrowLeft, Download, Printer, Edit, User, Calendar, Heart, Activity, Pill, AlertTriangle, CheckCircle } from 'lucide-react';
 import { getAssessmentById } from '../api/assessments';
 
