@@ -51,8 +51,21 @@ const LoginScreen = ({ onSwitchToSignup, onLoginSuccess }) => {
       const data = await response.json();
 
       if (data.success) {
+        // ✅ Save token
         localStorage.setItem('token', data.token);
+        
+        // ✅ Save FULL user data for profile
         localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('anesguard_user_data', JSON.stringify(data.user));
+        
+        // ✅ If remember me, also save for persistence
+        if (rememberMe) {
+          localStorage.setItem('anesguard_user', JSON.stringify({
+            uid: data.user.id,
+            email: data.user.email,
+            displayName: data.user.fullName
+          }));
+        }
         
         setTimeout(() => {
           setLoading(false);
@@ -102,6 +115,7 @@ const LoginScreen = ({ onSwitchToSignup, onLoginSuccess }) => {
         display: 'flex',
         minHeight: '500px'
       }}>
+        {/* LEFT PANEL */}
         <div style={{
           flex: '0 0 42%',
           background: 'linear-gradient(160deg,#e8f0fe 0%,#dce8fd 60%,#cddcfb 100%)',
@@ -142,6 +156,7 @@ const LoginScreen = ({ onSwitchToSignup, onLoginSuccess }) => {
           </svg>
         </div>
 
+        {/* RIGHT PANEL */}
         <div style={{ flex: 1, padding: '48px 44px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: '0 0 4px', textAlign: 'center' }}>Welcome</h2>
           <p style={{ fontSize: '13px', color: '#6b7280', textAlign: 'center', margin: '0 0 28px' }}>Login to continue</p>

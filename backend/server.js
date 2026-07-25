@@ -1,91 +1,33 @@
-const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const mongoose = require('mongoose');
-const connectDB = require('./src/config/db');
-const User = require('./src/models/User');
-const Assessment = require('./src/models/Assessment');
-const bcrypt = require('bcryptjs');
-
-dotenv.config();
-connectDB();
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-// ============================================
-// ✅ AUTH ROUTES
-// ============================================
-
-app.post('/api/auth/register', async (req, res) => {
-  try {
-    const { fullName, email, password, phone, department, employeeId, role } = req.body;
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ success: false, message: 'User already exists' });
-    }
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-    const user = await User.create({
-      fullName, email, password: hashedPassword,
-      phone: phone || '', department: department || 'Cardiology',
-      employeeId: employeeId || '', role: role || 'Viewer', status: 'Active'
-    });
-    res.status(201).json({
-      success: true, message: 'User created successfully',
-      user: { id: user._id, fullName: user.fullName, email: user.email, role: user.role, status: user.status }
-    });
-  } catch (error) {
-    console.error('Register error:', error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
-    }
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
-    }
-    res.json({
-      success: true,
-      token: 'test-token-' + Date.now(),
-      user: { id: user._id, fullName: user.fullName, email: user.email, role: user.role, status: user.status }
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// ============================================
-// ✅ ASSESSMENT ROUTES - COMPLETE FIX
-// ============================================
-
-// CREATE Assessment
+// CREATE Assessment - FIXED
 app.post('/api/assessments', async (req, res) => {
   try {
     console.log('📝 Creating assessment...');
+    console.log('📦 Request body:', req.body);
     
     const data = req.body;
     const userId = req.headers.userid;
 
-    // Get valid user ID
+    console.log('👤 User ID from header:', userId);
+
+    // ✅ FIX: Get valid user ID
     let userIdToUse = userId;
     
-    if (!userIdToUse || userIdToUse === 'test-user-id' || userIdToUse === 'undefined') {
+    if (!userIdToUse || userIdToUse === 'undefined' || userIdToUse === 'null') {
       const firstUser = await User.findOne();
       if (firstUser) {
         userIdToUse = firstUser._id;
         console.log('👤 Using first user:', userIdToUse);
       } else {
-        userIdToUse = new mongoose.Types.ObjectId();
-        console.log('👤 Creating new ObjectId:', userIdToUse);
+        // Create a test user if none exists
+        const testUser = await User.create({
+          fullName: 'Test User',
+          email: 'test@anesguard.com',
+          password: await bcrypt.hash('password123', 10),
+          role: 'Viewer',
+          status: 'Active'
+        });
+        userIdToUse = testUser._id;
+        console.log('👤 Created test user:', userIdToUse);
       }
     }
 
@@ -119,9 +61,19 @@ app.post('/api/assessments', async (req, res) => {
     else if (riskScore >= 4) riskLevel = 'Moderate';
     else riskLevel = 'Low';
 
-    // ✅ Save to database
+    // ✅ SAVE TO DATABASE
     const assessmentData = {
-      ...data,
+      patientName: data.patientName,
+      age: data.age,
+      gender: data.gender,
+      height: data.height,
+      weight: data.weight,
+      bloodPressure: data.bloodPressure,
+      heartRate: data.heartRate,
+      spo2: data.spo2 || 98,
+      allergies: data.allergies || 'None',
+      otherDetails: data.otherDetails || '',
+      medHistory: data.medHistory || {},
       bmi,
       riskScore,
       riskLevel,
@@ -130,8 +82,10 @@ app.post('/api/assessments', async (req, res) => {
       createdBy: userIdToUse
     };
 
+    console.log('💾 Saving assessment data:', assessmentData);
+
     const assessment = await Assessment.create(assessmentData);
-    console.log('✅ Assessment saved:', assessment._id);
+    console.log('✅ Assessment saved successfully! ID:', assessment._id);
 
     res.status(201).json({
       success: true,
@@ -143,63 +97,8 @@ app.post('/api/assessments', async (req, res) => {
     console.error('❌ Assessment error:', error);
     res.status(500).json({ 
       success: false, 
-      message: error.message 
+      message: error.message,
+      stack: error.stack 
     });
   }
-});
-
-// GET All Assessments
-app.get('/api/assessments', async (req, res) => {
-  try {
-    const assessments = await Assessment.find().sort({ createdAt: -1 });
-    console.log(`📊 Found ${assessments.length} assessments`);
-
-    res.json({
-      success: true,
-      assessments,
-      pagination: { page: 1, limit: 10, total: assessments.length, pages: 1 }
-    });
-  } catch (error) {
-    console.error('❌ Error fetching assessments:', error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// GET Assessment Stats
-app.get('/api/assessments/stats', async (req, res) => {
-  try {
-    const total = await Assessment.countDocuments();
-    const low = await Assessment.countDocuments({ riskLevel: 'Low' });
-    const moderate = await Assessment.countDocuments({ riskLevel: 'Moderate' });
-    const high = await Assessment.countDocuments({ riskLevel: 'High' });
-    const pending = await Assessment.countDocuments({ status: 'Pending' });
-    const completed = await Assessment.countDocuments({ status: 'Completed' });
-    
-    console.log('📊 Stats:', { total, low, moderate, high, pending, completed });
-
-    res.json({
-      success: true,
-      stats: { total, low, moderate, high, pending, completed }
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// ============================================
-// ✅ HEALTH CHECK
-// ============================================
-
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'AnesGuard API is running' });
-});
-
-// ============================================
-// ✅ START SERVER
-// ============================================
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📡 API URL: http://localhost:${PORT}/api`);
 });

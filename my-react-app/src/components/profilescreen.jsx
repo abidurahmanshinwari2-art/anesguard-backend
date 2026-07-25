@@ -26,31 +26,73 @@ const ProfileScreen = ({ onNavigate }) => {
   const [photoLoading, setPhotoLoading] = useState(false);
   const fileInputRef = useRef(null);
 
+  // ✅ Load user data on component mount - FIXED!
   useEffect(() => {
-    const savedUserData = localStorage.getItem('anesguard_user_data');
-    const currentUser = auth.currentUser;
-    const savedPhoto = localStorage.getItem('profilePhoto');
-    
-    if (savedUserData) {
-      const parsed = JSON.parse(savedUserData);
-      if (savedPhoto && !parsed.photoURL) {
-        parsed.photoURL = savedPhoto;
-      }
-      setUserData(parsed);
-      setEditForm(parsed);
-    } else if (currentUser) {
-      const userInfo = {
-        fullName: currentUser.displayName || '',
-        email: currentUser.email || '',
+    const loadUserData = () => {
+      // Try multiple sources for user data
+      let userInfo = {
+        fullName: '',
+        email: '',
         phone: '',
         department: '',
         employeeId: '',
-        photoURL: savedPhoto || '',
+        photoURL: '',
       };
+
+      // Source 1: Check localStorage for saved user data
+      const savedUserData = localStorage.getItem('anesguard_user_data');
+      if (savedUserData) {
+        try {
+          const parsed = JSON.parse(savedUserData);
+          userInfo = { ...userInfo, ...parsed };
+          console.log('✅ Loaded user data from localStorage:', userInfo);
+        } catch (e) {
+          console.log('❌ Error parsing savedUserData:', e);
+        }
+      }
+
+      // Source 2: Check 'user' key from login
+      const userFromLogin = localStorage.getItem('user');
+      if (userFromLogin && !userInfo.fullName) {
+        try {
+          const parsed = JSON.parse(userFromLogin);
+          userInfo = { ...userInfo, ...parsed };
+          console.log('✅ Loaded user data from "user" key:', userInfo);
+        } catch (e) {
+          console.log('❌ Error parsing userFromLogin:', e);
+        }
+      }
+
+      // Source 3: Check Firebase auth
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        if (currentUser.displayName && !userInfo.fullName) {
+          userInfo.fullName = currentUser.displayName;
+        }
+        if (currentUser.email && !userInfo.email) {
+          userInfo.email = currentUser.email;
+        }
+        if (currentUser.photoURL && !userInfo.photoURL) {
+          userInfo.photoURL = currentUser.photoURL;
+        }
+        console.log('✅ Loaded user data from Firebase:', userInfo);
+      }
+
+      // Source 4: Check profile photo
+      const savedPhoto = localStorage.getItem('profilePhoto');
+      if (savedPhoto && !userInfo.photoURL) {
+        userInfo.photoURL = savedPhoto;
+      }
+
+      // ✅ Set the user data
       setUserData(userInfo);
       setEditForm(userInfo);
+      
+      // ✅ Save to localStorage for persistence
       localStorage.setItem('anesguard_user_data', JSON.stringify(userInfo));
-    }
+    };
+
+    loadUserData();
   }, []);
 
   const handleEditChange = (e) => {
@@ -61,12 +103,16 @@ const ProfileScreen = ({ onNavigate }) => {
   const handleSaveProfile = async () => {
     setUserData(editForm);
     localStorage.setItem('anesguard_user_data', JSON.stringify(editForm));
+    localStorage.setItem('user', JSON.stringify(editForm));
     
     if (auth.currentUser) {
       try {
         const updateData = {};
         if (editForm.fullName !== userData.fullName) {
           updateData.displayName = editForm.fullName;
+        }
+        if (editForm.photoURL !== userData.photoURL) {
+          updateData.photoURL = editForm.photoURL;
         }
         if (Object.keys(updateData).length > 0) {
           await updateProfile(auth.currentUser, updateData);
@@ -77,6 +123,7 @@ const ProfileScreen = ({ onNavigate }) => {
     }
     
     setIsEditing(false);
+    alert('✅ Profile updated successfully!');
   };
 
   const handleCancelEdit = () => {
@@ -130,6 +177,7 @@ const ProfileScreen = ({ onNavigate }) => {
     }
   };
 
+  // ── Profile Picture Functions ──
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -157,6 +205,7 @@ const ProfileScreen = ({ onNavigate }) => {
         setUserData(updatedUserData);
         setEditForm(updatedUserData);
         localStorage.setItem('anesguard_user_data', JSON.stringify(updatedUserData));
+        localStorage.setItem('user', JSON.stringify(updatedUserData));
         
         setPhotoLoading(false);
         
@@ -193,6 +242,7 @@ const ProfileScreen = ({ onNavigate }) => {
     setUserData(updatedUserData);
     setEditForm(updatedUserData);
     localStorage.setItem('anesguard_user_data', JSON.stringify(updatedUserData));
+    localStorage.setItem('user', JSON.stringify(updatedUserData));
     
     alert('Profile picture removed successfully');
   };
@@ -449,6 +499,7 @@ const ProfileScreen = ({ onNavigate }) => {
             padding: '32px 32px 60px 32px',
             position: 'relative',
           }}>
+            {/* Profile Picture with Upload */}
             <div style={{
               position: 'relative',
               display: 'inline-block',
@@ -703,7 +754,7 @@ const ProfileScreen = ({ onNavigate }) => {
           maxWidth: '700px',
         }}>
           <p style={{ margin: 0, fontSize: '12px', color: '#1d4ed8' }}>
-            ℹ️ Your profile picture is stored locally in your browser.
+            ℹ️ Your profile information is stored locally in your browser.
           </p>
         </div>
       </main>
