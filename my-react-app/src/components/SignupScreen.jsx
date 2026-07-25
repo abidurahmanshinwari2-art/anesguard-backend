@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, User, Lock, Mail, Phone, Building, Calendar } from 'lucide-react';
-import { syncUser } from '../api/users';
 
 const SignupScreen = ({ onSwitchToLogin }) => {
   const [formData, setFormData] = useState({
@@ -40,49 +39,49 @@ const SignupScreen = ({ onSwitchToLogin }) => {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  const validationErrors = validate();
-  if (Object.keys(validationErrors).length > 0) {
-    setErrors(validationErrors);
-    return;
-  }
-
-  setLoading(true);
-  setAuthError('');
-
-  try {
-    const response = await fetch('https://anesguard-backend.onrender.com/api/auth/register', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        fullName: formData.fullName,
-        email: formData.email,
-        password: formData.password,
-        phone: formData.phone,
-        department: formData.department,
-        employeeId: formData.employeeId,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (data.success) {
-      alert('Registration successful! Please login.');
-      setLoading(false);
-      onSwitchToLogin();
-    } else {
-      setLoading(false);
-      setAuthError(data.message || 'Registration failed');
+    e.preventDefault();
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
     }
-  } catch (error) {
-    console.error('Signup error:', error);
-    setLoading(false);
-    setAuthError('Registration failed. Please try again.');
-  }
-};
+
+    setLoading(true);
+    setAuthError('');
+
+    try {
+      const response = await fetch('https://anesguard-backend.onrender.com/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fullName: formData.fullName,
+          email: formData.email,
+          password: formData.password,
+          phone: formData.phone,
+          department: formData.department,
+          employeeId: formData.employeeId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert('Registration successful! Please login.');
+        setLoading(false);
+        onSwitchToLogin();
+      } else {
+        setLoading(false);
+        setAuthError(data.message || 'Registration failed');
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      setLoading(false);
+      setAuthError('Registration failed. Please try again.');
+    }
+  };
+
   const inputStyle = (field) => ({
     width: '100%',
     padding: '10px 12px 10px 36px',
@@ -99,22 +98,31 @@ const SignupScreen = ({ onSwitchToLogin }) => {
   return (
     <div style={{
       minHeight: '100vh',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      backgroundColor: '#f0f4f8', padding: '16px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#f0f4f8',
+      padding: '16px',
       fontFamily: "'Segoe UI', sans-serif"
     }}>
       <div style={{
-        width: '100%', maxWidth: '1000px',
-        backgroundColor: '#fff', borderRadius: '16px',
+        width: '100%',
+        maxWidth: '1000px',
+        backgroundColor: '#fff',
+        borderRadius: '16px',
         boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
-        overflow: 'hidden', display: 'flex', minHeight: '580px'
+        overflow: 'hidden',
+        display: 'flex',
+        minHeight: '580px'
       }}>
-
         {/* LEFT PANEL */}
         <div style={{
           flex: '0 0 42%',
           background: 'linear-gradient(160deg,#e8f0fe 0%,#dce8fd 60%,#cddcfb 100%)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
           padding: '40px 32px'
         }}>
           <div style={{ marginBottom: '14px' }}>
@@ -154,7 +162,6 @@ const SignupScreen = ({ onSwitchToLogin }) => {
           <p style={{ fontSize: '13px', color: '#6b7280', textAlign: 'center', margin: '0 0 24px' }}>Register to access the system</p>
 
           <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-
             {/* Full Name */}
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Full Name</label>
@@ -162,10 +169,16 @@ const SignupScreen = ({ onSwitchToLogin }) => {
                 <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: errors.fullName ? '#ef4444' : '#9ca3af' }}>
                   <User size={16} />
                 </span>
-                <input type="text" name="fullName" value={formData.fullName} onChange={handleChange}
-                  placeholder="Dr. John Doe" style={inputStyle('fullName')}
+                <input
+                  type="text"
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleChange}
+                  placeholder="Dr. John Doe"
+                  style={inputStyle('fullName')}
                   onFocus={e => e.target.style.borderColor = errors.fullName ? '#ef4444' : '#2563eb'}
-                  onBlur={e => e.target.style.borderColor = errors.fullName ? '#ef4444' : '#d1d5db'} />
+                  onBlur={e => e.target.style.borderColor = errors.fullName ? '#ef4444' : '#d1d5db'}
+                />
               </div>
               {errors.fullName && <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#ef4444' }}>{errors.fullName}</p>}
             </div>
@@ -177,10 +190,16 @@ const SignupScreen = ({ onSwitchToLogin }) => {
                 <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: errors.email ? '#ef4444' : '#9ca3af' }}>
                   <Mail size={16} />
                 </span>
-                <input type="email" name="email" value={formData.email} onChange={handleChange}
-                  placeholder="doctor@hospital.com" style={inputStyle('email')}
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="doctor@hospital.com"
+                  style={inputStyle('email')}
                   onFocus={e => e.target.style.borderColor = errors.email ? '#ef4444' : '#2563eb'}
-                  onBlur={e => e.target.style.borderColor = errors.email ? '#ef4444' : '#d1d5db'} />
+                  onBlur={e => e.target.style.borderColor = errors.email ? '#ef4444' : '#d1d5db'}
+                />
               </div>
               {errors.email && <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#ef4444' }}>{errors.email}</p>}
             </div>
@@ -192,10 +211,16 @@ const SignupScreen = ({ onSwitchToLogin }) => {
                 <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: errors.phone ? '#ef4444' : '#9ca3af' }}>
                   <Phone size={16} />
                 </span>
-                <input type="tel" name="phone" value={formData.phone} onChange={handleChange}
-                  placeholder="+1 234 567 8900" style={inputStyle('phone')}
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  placeholder="+1 234 567 8900"
+                  style={inputStyle('phone')}
                   onFocus={e => e.target.style.borderColor = errors.phone ? '#ef4444' : '#2563eb'}
-                  onBlur={e => e.target.style.borderColor = errors.phone ? '#ef4444' : '#d1d5db'} />
+                  onBlur={e => e.target.style.borderColor = errors.phone ? '#ef4444' : '#d1d5db'}
+                />
               </div>
               {errors.phone && <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#ef4444' }}>{errors.phone}</p>}
             </div>
@@ -208,18 +233,22 @@ const SignupScreen = ({ onSwitchToLogin }) => {
                   <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: errors.department ? '#ef4444' : '#9ca3af' }}>
                     <Building size={16} />
                   </span>
-                  <select name="department" value={formData.department} onChange={handleChange}
+                  <select
+                    name="department"
+                    value={formData.department}
+                    onChange={handleChange}
                     style={{ ...inputStyle('department'), appearance: 'auto', cursor: 'pointer', paddingLeft: '36px' }}
                     onFocus={e => e.target.style.borderColor = errors.department ? '#ef4444' : '#2563eb'}
-                    onBlur={e => e.target.style.borderColor = errors.department ? '#ef4444' : '#d1d5db'}>
+                    onBlur={e => e.target.style.borderColor = errors.department ? '#ef4444' : '#d1d5db'}
+                  >
                     <option value="">Select Department</option>
-                    <option value="cardiology">Cardiology</option>
-                    <option value="neurology">Neurology</option>
-                    <option value="pediatrics">Pediatrics</option>
-                    <option value="orthopedics">Orthopedics</option>
-                    <option value="radiology">Radiology</option>
-                    <option value="emergency">Emergency Medicine</option>
-                    <option value="surgery">Surgery</option>
+                    <option value="Cardiology">Cardiology</option>
+                    <option value="Neurology">Neurology</option>
+                    <option value="Pediatrics">Pediatrics</option>
+                    <option value="Orthopedics">Orthopedics</option>
+                    <option value="Radiology">Radiology</option>
+                    <option value="Emergency">Emergency Medicine</option>
+                    <option value="Surgery">Surgery</option>
                   </select>
                 </div>
                 {errors.department && <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#ef4444' }}>{errors.department}</p>}
@@ -231,10 +260,16 @@ const SignupScreen = ({ onSwitchToLogin }) => {
                   <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: errors.employeeId ? '#ef4444' : '#9ca3af' }}>
                     <Calendar size={16} />
                   </span>
-                  <input type="text" name="employeeId" value={formData.employeeId} onChange={handleChange}
-                    placeholder="EMP123456" style={inputStyle('employeeId')}
+                  <input
+                    type="text"
+                    name="employeeId"
+                    value={formData.employeeId}
+                    onChange={handleChange}
+                    placeholder="EMP123456"
+                    style={inputStyle('employeeId')}
                     onFocus={e => e.target.style.borderColor = errors.employeeId ? '#ef4444' : '#2563eb'}
-                    onBlur={e => e.target.style.borderColor = errors.employeeId ? '#ef4444' : '#d1d5db'} />
+                    onBlur={e => e.target.style.borderColor = errors.employeeId ? '#ef4444' : '#d1d5db'}
+                  />
                 </div>
                 {errors.employeeId && <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#ef4444' }}>{errors.employeeId}</p>}
               </div>
@@ -247,12 +282,31 @@ const SignupScreen = ({ onSwitchToLogin }) => {
                 <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: errors.password ? '#ef4444' : '#9ca3af' }}>
                   <Lock size={16} />
                 </span>
-                <input type={showPassword ? 'text' : 'password'} name="password" value={formData.password} onChange={handleChange}
-                  placeholder="Minimum 8 characters" style={{ ...inputStyle('password'), paddingRight: '40px' }}
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="Minimum 8 characters"
+                  style={{ ...inputStyle('password'), paddingRight: '40px' }}
                   onFocus={e => e.target.style.borderColor = errors.password ? '#ef4444' : '#2563eb'}
-                  onBlur={e => e.target.style.borderColor = errors.password ? '#ef4444' : '#d1d5db'} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)}
-                  style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 0 }}>
+                  onBlur={e => e.target.style.borderColor = errors.password ? '#ef4444' : '#d1d5db'}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#9ca3af',
+                    padding: 0
+                  }}
+                >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
@@ -266,12 +320,31 @@ const SignupScreen = ({ onSwitchToLogin }) => {
                 <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: errors.confirmPassword ? '#ef4444' : '#9ca3af' }}>
                   <Lock size={16} />
                 </span>
-                <input type={showConfirmPassword ? 'text' : 'password'} name="confirmPassword" value={formData.confirmPassword} onChange={handleChange}
-                  placeholder="Confirm your password" style={{ ...inputStyle('confirmPassword'), paddingRight: '40px' }}
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  placeholder="Confirm your password"
+                  style={{ ...inputStyle('confirmPassword'), paddingRight: '40px' }}
                   onFocus={e => e.target.style.borderColor = errors.confirmPassword ? '#ef4444' : '#2563eb'}
-                  onBlur={e => e.target.style.borderColor = errors.confirmPassword ? '#ef4444' : '#d1d5db'} />
-                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 0 }}>
+                  onBlur={e => e.target.style.borderColor = errors.confirmPassword ? '#ef4444' : '#d1d5db'}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#9ca3af',
+                    padding: 0
+                  }}
+                >
                   {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
@@ -280,27 +353,59 @@ const SignupScreen = ({ onSwitchToLogin }) => {
 
             {/* Auth Error Banner */}
             {authError && (
-              <div style={{ padding: '10px 14px', borderRadius: '8px', backgroundColor: '#fef2f2', border: '1.5px solid #fecaca', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                padding: '10px 14px',
+                borderRadius: '8px',
+                backgroundColor: '#fef2f2',
+                border: '1.5px solid #fecaca',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.2" strokeLinecap="round">
-                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
                 <p style={{ margin: 0, fontSize: '13px', color: '#dc2626', fontWeight: '500' }}>{authError}</p>
               </div>
             )}
 
             {/* Sign Up Button */}
-            <button type="submit" disabled={loading}
+            <button
+              type="submit"
+              disabled={loading}
               style={{
-                width: '100%', padding: '11px', backgroundColor: '#2563eb', color: '#fff',
-                border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: '600',
-                cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.75 : 1,
-                transition: 'background-color 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '4px'
+                width: '100%',
+                padding: '11px',
+                backgroundColor: '#2563eb',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: '600',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.75 : 1,
+                transition: 'background-color 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                marginTop: '4px'
               }}
               onMouseOver={e => { if (!loading) e.currentTarget.style.backgroundColor = '#1d4ed8'; }}
-              onMouseOut={e => { e.currentTarget.style.backgroundColor = '#2563eb'; }}>
+              onMouseOut={e => { e.currentTarget.style.backgroundColor = '#2563eb'; }}
+            >
               {loading ? (
                 <>
-                  <div style={{ width: '16px', height: '16px', border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                  <div style={{
+                    width: '16px',
+                    height: '16px',
+                    border: '2px solid #fff',
+                    borderTopColor: 'transparent',
+                    borderRadius: '50%',
+                    animation: 'spin 0.7s linear infinite'
+                  }} />
                   Creating account...
                 </>
               ) : 'Sign Up'}
@@ -309,8 +414,19 @@ const SignupScreen = ({ onSwitchToLogin }) => {
             {/* Login Link */}
             <p style={{ textAlign: 'center', fontSize: '13px', color: '#6b7280', margin: 0 }}>
               Already have an account?{' '}
-              <button type="button" onClick={onSwitchToLogin}
-                style={{ background: 'none', border: 'none', color: '#2563eb', fontWeight: '600', cursor: 'pointer', fontSize: '13px', padding: 0 }}>
+              <button
+                type="button"
+                onClick={onSwitchToLogin}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#2563eb',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  padding: 0
+                }}
+              >
                 Log In
               </button>
             </p>
@@ -321,11 +437,6 @@ const SignupScreen = ({ onSwitchToLogin }) => {
           </p>
         </div>
       </div>
-
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        input::placeholder { color: #9ca3af; }
-      `}</style>
     </div>
   );
 };
