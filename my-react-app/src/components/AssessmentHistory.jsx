@@ -18,9 +18,7 @@ const AssessmentHistory = ({ onNavigate }) => {
 
       try {
         const response = await fetch('https://anesguard-backend.onrender.com/api/assessments', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
+          headers: { 'Authorization': `Bearer ${token}` },
         });
         const data = await response.json();
         if (data.success) {
@@ -120,7 +118,7 @@ const AssessmentHistory = ({ onNavigate }) => {
                       </tr>
                     ) : (
                       filteredData.map((assessment, index) => (
-                        <tr key={assessment.id || index} style={{ borderBottom: index < filteredData.length - 1 ? '1px solid #f8fafc' : 'none' }}>
+                        <tr key={assessment._id || index} style={{ borderBottom: index < filteredData.length - 1 ? '1px solid #f8fafc' : 'none' }}>
                           <td style={{ padding: '10px 14px', fontWeight: '600', color: '#1e293b' }}>{assessment.patientName || 'Unknown'}</td>
                           <td style={{ padding: '10px 14px', color: '#374151' }}>{assessment.age || '-'}</td>
                           <td style={{ padding: '10px 14px' }}>
@@ -156,10 +154,6 @@ const AssessmentHistory = ({ onNavigate }) => {
             </>
           )}
         </div>
-
-        <style>{`
-          @keyframes spin { to { transform: rotate(360deg); } }
-        `}</style>
       </main>
     </div>
   );

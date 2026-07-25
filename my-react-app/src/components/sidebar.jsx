@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { auth, signOut } from '../firebase/config';
 
-// NAV CONFIG – Added Admin Panel and History
 export const NAV_ITEMS = [
   { label: 'Dashboard', screen: 'dashboard', icon: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z' },
   { label: 'New Assessment', screen: 'patientInput', icon: 'M12 5v14M5 12h14' },
@@ -14,7 +13,6 @@ export const NAV_ITEMS = [
   { label: 'Logout', screen: null, icon: ['M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4', 'M16 17l5-5-5-5', 'M21 12H9'], isLogout: true },
 ];
 
-// SHARED ICONS
 export const ShieldIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff"
     strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -31,7 +29,6 @@ export const NavIcon = ({ d }) => (
   </svg>
 );
 
-// SIDEBAR COMPONENT
 export const Sidebar = ({ activeLabel, onNavigate, onLogout }) => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 

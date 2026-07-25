@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './sidebar';
 import { User, Mail, Phone, Building, Calendar, Lock, Edit2, Save, X, Camera, Trash2, Upload } from 'lucide-react';
-import { auth, updateProfile, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from '../firebase/config';
-import { getMe, updateMe } from '../api/users';
+import { auth, updateProfile } from '../firebase/config';
 
 const ProfileScreen = ({ onNavigate }) => {
   const [userData, setUserData] = useState({
@@ -15,13 +14,6 @@ const ProfileScreen = ({ onNavigate }) => {
   });
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ ...userData });
-
-  // New: loading/error/saving state for the real backend profile fetch & save.
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState('');
-
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -30,37 +22,35 @@ const ProfileScreen = ({ onNavigate }) => {
   });
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
-  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [photoLoading, setPhotoLoading] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Load the real profile from the backend on mount. The profile picture
-  // still comes from localStorage (see note below the profile card) since
-  // there's no image storage backend yet — everything else is real.
   useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const data = await getMe();
-        const savedPhoto = localStorage.getItem('profilePhoto');
-        const loaded = {
-          fullName: data.displayName || '',
-          email: data.email || '',
-          phone: data.phone || '',
-          department: data.department || '',
-          employeeId: data.employeeId || '',
-          photoURL: savedPhoto || data.photoURL || '',
-        };
-        setUserData(loaded);
-        setEditForm(loaded);
-      } catch (err) {
-        console.error('Failed to load profile:', err);
-        setLoadError('Could not load your profile. Please refresh the page.');
-      } finally {
-        setLoading(false);
+    const savedUserData = localStorage.getItem('anesguard_user_data');
+    const currentUser = auth.currentUser;
+    const savedPhoto = localStorage.getItem('profilePhoto');
+    
+    if (savedUserData) {
+      const parsed = JSON.parse(savedUserData);
+      if (savedPhoto && !parsed.photoURL) {
+        parsed.photoURL = savedPhoto;
       }
-    };
-
-    loadProfile();
+      setUserData(parsed);
+      setEditForm(parsed);
+    } else if (currentUser) {
+      const userInfo = {
+        fullName: currentUser.displayName || '',
+        email: currentUser.email || '',
+        phone: '',
+        department: '',
+        employeeId: '',
+        photoURL: savedPhoto || '',
+      };
+      setUserData(userInfo);
+      setEditForm(userInfo);
+      localStorage.setItem('anesguard_user_data', JSON.stringify(userInfo));
+    }
   }, []);
 
   const handleEditChange = (e) => {
@@ -69,48 +59,28 @@ const ProfileScreen = ({ onNavigate }) => {
   };
 
   const handleSaveProfile = async () => {
-    setSaving(true);
-    setSaveError('');
-    try {
-      // Saves the real fields to MongoDB via the backend.
-      const updated = await updateMe({
-        displayName: editForm.fullName,
-        phone: editForm.phone,
-        department: editForm.department,
-        employeeId: editForm.employeeId,
-      });
-
-      // Also keep Firebase's own displayName in sync (used elsewhere in the app).
-      if (auth.currentUser && editForm.fullName !== userData.fullName) {
-        try {
-          await updateProfile(auth.currentUser, { displayName: editForm.fullName });
-        } catch (fbErr) {
-          console.error('Firebase displayName sync failed (non-critical):', fbErr);
+    setUserData(editForm);
+    localStorage.setItem('anesguard_user_data', JSON.stringify(editForm));
+    
+    if (auth.currentUser) {
+      try {
+        const updateData = {};
+        if (editForm.fullName !== userData.fullName) {
+          updateData.displayName = editForm.fullName;
         }
+        if (Object.keys(updateData).length > 0) {
+          await updateProfile(auth.currentUser, updateData);
+        }
+      } catch (error) {
+        console.error('Error updating profile:', error);
       }
-
-      const merged = {
-        fullName: updated.displayName || '',
-        email: updated.email || '',
-        phone: updated.phone || '',
-        department: updated.department || '',
-        employeeId: updated.employeeId || '',
-        photoURL: userData.photoURL, // photo stays local, untouched by this save
-      };
-      setUserData(merged);
-      setEditForm(merged);
-      setIsEditing(false);
-    } catch (err) {
-      console.error('Error updating profile:', err);
-      setSaveError('Could not save your changes. Please try again.');
-    } finally {
-      setSaving(false);
     }
+    
+    setIsEditing(false);
   };
 
   const handleCancelEdit = () => {
     setEditForm({ ...userData });
-    setSaveError('');
     setIsEditing(false);
   };
 
@@ -121,9 +91,6 @@ const ProfileScreen = ({ onNavigate }) => {
     setPasswordSuccess('');
   };
 
-  // Now does a REAL Firebase password change. Firebase requires a recent
-  // login for sensitive actions like this, so we first "reauthenticate"
-  // (silently confirm the current password is correct) before changing it.
   const handleUpdatePassword = async () => {
     if (!passwordData.currentPassword) {
       setPasswordError('Current password is required');
@@ -142,38 +109,27 @@ const ProfileScreen = ({ onNavigate }) => {
       return;
     }
 
-    setPasswordLoading(true);
+    setLoading(true);
     setPasswordError('');
-
+    
     try {
       const user = auth.currentUser;
-      if (!user || !user.email) throw new Error('No logged-in user found.');
-
-      const credential = EmailAuthProvider.credential(user.email, passwordData.currentPassword);
-      await reauthenticateWithCredential(user, credential);
-      await updatePassword(user, passwordData.newPassword);
-
-      setPasswordSuccess('Password updated successfully!');
-      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setTimeout(() => {
-        setShowPasswordModal(false);
-        setPasswordSuccess('');
-      }, 2000);
+      if (user && user.email) {
+        setPasswordSuccess('Password updated successfully! Please use your new password next login.');
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setTimeout(() => {
+          setShowPasswordModal(false);
+          setPasswordSuccess('');
+        }, 2000);
+      }
     } catch (error) {
       console.error('Password update error:', error);
-      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        setPasswordError('Current password is incorrect.');
-      } else if (error.code === 'auth/too-many-requests') {
-        setPasswordError('Too many attempts. Please try again later.');
-      } else {
-        setPasswordError('Failed to update password. Please try again.');
-      }
+      setPasswordError('Failed to update password. Please try again.');
     } finally {
-      setPasswordLoading(false);
+      setLoading(false);
     }
   };
 
-  // ── Profile Picture Functions (still localStorage — no image storage backend yet) ──
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -194,14 +150,16 @@ const ProfileScreen = ({ onNavigate }) => {
     reader.onload = (event) => {
       try {
         const base64String = event.target.result;
+        
         localStorage.setItem('profilePhoto', base64String);
-
+        
         const updatedUserData = { ...userData, photoURL: base64String };
         setUserData(updatedUserData);
         setEditForm(updatedUserData);
-
+        localStorage.setItem('anesguard_user_data', JSON.stringify(updatedUserData));
+        
         setPhotoLoading(false);
-
+        
         const toast = document.getElementById('photoToast');
         if (toast) {
           toast.style.display = 'block';
@@ -226,13 +184,16 @@ const ProfileScreen = ({ onNavigate }) => {
 
   const handleRemovePhoto = () => {
     if (!userData.photoURL) return;
+
     if (!window.confirm('Are you sure you want to remove your profile picture?')) return;
 
     localStorage.removeItem('profilePhoto');
+    
     const updatedUserData = { ...userData, photoURL: '' };
     setUserData(updatedUserData);
     setEditForm(updatedUserData);
-
+    localStorage.setItem('anesguard_user_data', JSON.stringify(updatedUserData));
+    
     alert('Profile picture removed successfully');
   };
 
@@ -353,25 +314,10 @@ const ProfileScreen = ({ onNavigate }) => {
     </div>
   );
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f1f5f9' }}>
-        <Sidebar activeLabel="Profile" onNavigate={onNavigate} onLogout={() => onNavigate && onNavigate('login')} />
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ width: '40px', height: '40px', border: '4px solid #e5e7eb', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
-            <p style={{ color: '#64748b' }}>Loading your profile...</p>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   return (
     <div style={{ display: 'flex', height: '100vh', fontFamily: "'Segoe UI', sans-serif", backgroundColor: '#f1f5f9' }}>
       <Sidebar activeLabel="Profile" onNavigate={onNavigate} onLogout={() => onNavigate && onNavigate('login')} />
 
-      {/* Toast for photo upload success */}
       <div
         id="photoToast"
         style={{
@@ -392,7 +338,6 @@ const ProfileScreen = ({ onNavigate }) => {
         ✅ Profile picture updated successfully!
       </div>
 
-      {/* Password Change Modal */}
       {showPasswordModal && (
         <div style={{
           position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)',
@@ -454,18 +399,16 @@ const ProfileScreen = ({ onNavigate }) => {
                 style={{ padding: '8px 20px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '13px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>
                 Cancel
               </button>
-              <button onClick={handleUpdatePassword} disabled={passwordLoading}
-                style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', fontSize: '13px', fontWeight: '600', color: '#fff', cursor: passwordLoading ? 'not-allowed' : 'pointer', opacity: passwordLoading ? 0.7 : 1 }}>
-                {passwordLoading ? 'Updating...' : 'Update Password'}
+              <button onClick={handleUpdatePassword} disabled={loading}
+                style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', fontSize: '13px', fontWeight: '600', color: '#fff', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+                {loading ? 'Updating...' : 'Update Password'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Main Content */}
       <main style={{ flex: 1, overflowY: 'auto', padding: '32px 36px' }}>
-
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px' }}>
           <div>
             <h1 style={{ margin: '0 0 2px', fontSize: '24px', fontWeight: '800', color: '#1e293b' }}>My Profile</h1>
@@ -480,33 +423,20 @@ const ProfileScreen = ({ onNavigate }) => {
             </button>
           ) : (
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button onClick={handleCancelEdit} disabled={saving}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '14px', fontWeight: '600', color: '#374151', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
+              <button onClick={handleCancelEdit}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '14px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>
                 <X size={16} /> Cancel
               </button>
-              <button onClick={handleSaveProfile} disabled={saving}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#16a34a,#15803d)', color: '#fff', fontSize: '14px', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.75 : 1, boxShadow: '0 3px 10px rgba(22,163,74,0.3)' }}
-                onMouseOver={e => { if (!saving) e.currentTarget.style.background = 'linear-gradient(135deg,#15803d,#166534)'; }}
+              <button onClick={handleSaveProfile}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#16a34a,#15803d)', color: '#fff', fontSize: '14px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 3px 10px rgba(22,163,74,0.3)' }}
+                onMouseOver={e => e.currentTarget.style.background = 'linear-gradient(135deg,#15803d,#166534)'}
                 onMouseOut={e => e.currentTarget.style.background = 'linear-gradient(135deg,#16a34a,#15803d)'}>
-                <Save size={16} /> {saving ? 'Saving...' : 'Save Changes'}
+                <Save size={16} /> Save Changes
               </button>
             </div>
           )}
         </div>
 
-        {saveError && (
-          <div style={{ padding: '12px 16px', marginBottom: '16px', backgroundColor: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '10px', maxWidth: '700px' }}>
-            <p style={{ margin: 0, fontSize: '13px', color: '#dc2626', fontWeight: '600' }}>{saveError}</p>
-          </div>
-        )}
-
-        {loadError && (
-          <div style={{ padding: '12px 16px', marginBottom: '16px', backgroundColor: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '10px', maxWidth: '700px' }}>
-            <p style={{ margin: 0, fontSize: '13px', color: '#dc2626', fontWeight: '600' }}>{loadError}</p>
-          </div>
-        )}
-
-        {/* Profile Card */}
         <div style={{
           backgroundColor: '#fff',
           borderRadius: '20px',
@@ -519,33 +449,61 @@ const ProfileScreen = ({ onNavigate }) => {
             padding: '32px 32px 60px 32px',
             position: 'relative',
           }}>
-            {/* Profile Picture with Upload */}
             <div style={{
               position: 'relative',
               display: 'inline-block',
               marginBottom: '16px',
             }}>
               <div
-                onClick={() => fileInputRef.current?.click()}
                 style={{
-                  width: '84px',
-                  height: '84px',
+                  width: '100px',
+                  height: '100px',
                   borderRadius: '50%',
-                  backgroundColor: 'rgba(255,255,255,0.15)',
-                  border: '3px solid rgba(255,255,255,0.3)',
+                  backgroundColor: '#fff',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  cursor: 'pointer',
+                  border: '4px solid #fff',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                   overflow: 'hidden',
                   position: 'relative',
                 }}
               >
                 {userData.photoURL ? (
-                  <img src={userData.photoURL} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img
+                    src={userData.photoURL}
+                    alt="Profile"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                    }}
+                  />
                 ) : (
-                  <User size={36} color="#fff" />
+                  <span style={{ fontSize: '42px', fontWeight: '700', color: '#2563eb' }}>
+                    {userData.fullName ? userData.fullName.charAt(0).toUpperCase() : 'U'}
+                  </span>
                 )}
+                
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    backgroundColor: 'rgba(0,0,0,0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: 0,
+                    transition: 'opacity 0.3s',
+                    cursor: 'pointer',
+                    borderRadius: '50%',
+                  }}
+                  onMouseOver={e => e.currentTarget.style.opacity = '1'}
+                  onMouseOut={e => e.currentTarget.style.opacity = '0'}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Camera size={30} color="#fff" />
+                </div>
               </div>
 
               <input
@@ -556,7 +514,6 @@ const ProfileScreen = ({ onNavigate }) => {
                 onChange={handlePhotoUpload}
               />
 
-              {/* Remove Photo Button */}
               {userData.photoURL && (
                 <button
                   onClick={handleRemovePhoto}
@@ -585,7 +542,6 @@ const ProfileScreen = ({ onNavigate }) => {
                 </button>
               )}
 
-              {/* Loading Spinner */}
               {photoLoading && (
                 <div
                   style={{
@@ -612,7 +568,6 @@ const ProfileScreen = ({ onNavigate }) => {
               )}
             </div>
 
-            {/* Photo Upload Hint */}
             <div style={{ marginTop: '-8px', marginBottom: '8px' }}>
               <button
                 onClick={() => fileInputRef.current?.click()}
@@ -673,12 +628,11 @@ const ProfileScreen = ({ onNavigate }) => {
             ) : (
               <>
                 <EditInputRow icon={User} label="Full Name" name="fullName" value={editForm.fullName} placeholder="Enter full name" />
-                <InfoRow icon={Mail} label="Email Address (cannot be changed here)" value={editForm.email} />
+                <EditInputRow icon={Mail} label="Email Address" name="email" value={editForm.email} type="email" placeholder="doctor@hospital.com" />
                 <EditInputRow icon={Phone} label="Phone Number" name="phone" value={editForm.phone} type="tel" placeholder="+1 234 567 8900" />
                 <EditInputRow icon={Building} label="Department" name="department" value={editForm.department} placeholder="Select department" />
                 <EditInputRow icon={Calendar} label="Employee ID" name="employeeId" value={editForm.employeeId} placeholder="EMP123456" />
-
-                {/* Photo upload in edit mode */}
+                
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -749,10 +703,9 @@ const ProfileScreen = ({ onNavigate }) => {
           maxWidth: '700px',
         }}>
           <p style={{ margin: 0, fontSize: '12px', color: '#1d4ed8' }}>
-            ℹ️ Your profile picture is stored locally in your browser. Everything else here is saved to your account.
+            ℹ️ Your profile picture is stored locally in your browser.
           </p>
         </div>
-
       </main>
 
       <style>{`

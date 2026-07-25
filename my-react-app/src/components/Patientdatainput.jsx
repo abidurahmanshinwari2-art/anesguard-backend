@@ -132,7 +132,6 @@ const PatientDataInput = ({ onSaveAndContinue, onNavigate }) => {
           </div>
         )}
 
-        {/* Patient Information */}
         <div style={sectionStyle}>
           <p style={secTitle}>Patient Information</p>
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1.2fr', gap: '14px', marginBottom: '14px' }}>
@@ -190,7 +189,6 @@ const PatientDataInput = ({ onSaveAndContinue, onNavigate }) => {
           </div>
         </div>
 
-        {/* Vital Signs */}
         <div style={sectionStyle}>
           <p style={secTitle}>Vital Signs</p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' }}>
@@ -220,7 +218,6 @@ const PatientDataInput = ({ onSaveAndContinue, onNavigate }) => {
           </div>
         </div>
 
-        {/* Medical History */}
         <div style={sectionStyle}>
           <p style={secTitle}>Medical History</p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
@@ -248,7 +245,6 @@ const PatientDataInput = ({ onSaveAndContinue, onNavigate }) => {
           </div>
         </div>
 
-        {/* Allergies */}
         <div style={sectionStyle}>
           <p style={secTitle}>Allergies</p>
           <input style={getInputStyle(false)} placeholder="Enter any drug or food allergies" value={form.allergies}

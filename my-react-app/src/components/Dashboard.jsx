@@ -15,44 +15,48 @@ const quickActions = [
   { label: 'Continue Last Case', sub: 'Resume previous case', bg: 'linear-gradient(135deg,#ea580c,#c2410c)', icon: '▶', screen: 'patientInput' },
 ];
 
-const recentAssessments = [
-  { name: 'Abdulbais', age: 45, risk: 'Moderate', date: '25 March 2026' },
-  { name: 'Sarah Khan', age: 62, risk: 'High', date: '24 March 2026' },
-  { name: 'Atif Samim', age: 20, risk: 'Low', date: '23 March 2026' },
-];
-
 const riskColor = { Low: '#16a34a', Moderate: '#d97706', High: '#dc2626' };
 const riskBg = { Low: '#f0fdf4', Moderate: '#fffbeb', High: '#fef2f2' };
 
 const StudentDashboard = ({ onLogout, onNavigate }) => {
-  const [stats, setStats] = useState({
-    total: 0,
-    low: 0,
-    moderate: 0,
-    high: 0
-  });
+  const [stats, setStats] = useState({ total: 0, low: 0, moderate: 0, high: 0 });
+  const [recentAssessments, setRecentAssessments] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchData = async () => {
       const token = localStorage.getItem('token');
-      if (!token) return;
+      if (!token) {
+        setLoading(false);
+        return;
+      }
 
       try {
-        const response = await fetch('https://anesguard-backend.onrender.com/api/assessments/stats', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
+        // Fetch stats
+        const statsResponse = await fetch('https://anesguard-backend.onrender.com/api/assessments/stats', {
+          headers: { 'Authorization': `Bearer ${token}` },
         });
-        const data = await response.json();
-        if (data.success) {
-          setStats(data.stats);
+        const statsData = await statsResponse.json();
+        if (statsData.success) {
+          setStats(statsData.stats);
+        }
+
+        // Fetch recent assessments
+        const assessmentsResponse = await fetch('https://anesguard-backend.onrender.com/api/assessments?limit=5', {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const assessmentsData = await assessmentsResponse.json();
+        if (assessmentsData.success) {
+          setRecentAssessments(assessmentsData.assessments || []);
         }
       } catch (error) {
-        console.error('Error fetching stats:', error);
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchStats();
+    fetchData();
   }, []);
 
   const updatedStatCards = statCards.map(card => {
@@ -87,6 +91,7 @@ const StudentDashboard = ({ onLogout, onNavigate }) => {
         </header>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
+          {/* Stat Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px', marginBottom: '24px' }}>
             {updatedStatCards.map(card => (
               <div key={card.label} style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', borderTop: `3px solid ${card.accent}` }}>
@@ -97,6 +102,7 @@ const StudentDashboard = ({ onLogout, onNavigate }) => {
             ))}
           </div>
 
+          {/* Quick Actions */}
           <h2 style={{ margin: '0 0 14px', fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>Quick Actions</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '14px', marginBottom: '24px' }}>
             {quickActions.map(action => (
@@ -111,6 +117,7 @@ const StudentDashboard = ({ onLogout, onNavigate }) => {
             ))}
           </div>
 
+          {/* Recent Assessments */}
           <div style={{ backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9' }}>
               <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>Recent Assessments</h3>
@@ -124,23 +131,29 @@ const StudentDashboard = ({ onLogout, onNavigate }) => {
                 <span key={h} style={{ fontSize: '12px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{h}</span>
               ))}
             </div>
-            {recentAssessments.map((row, i) => (
-              <div key={i}
-                style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1.5fr 2fr 1fr', padding: '14px 20px', alignItems: 'center', borderBottom: i < recentAssessments.length - 1 ? '1px solid #f8fafc' : 'none', transition: 'background 0.1s' }}
-                onMouseOver={e => e.currentTarget.style.background = '#f8fafc'}
-                onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
-                <span style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>{row.name}</span>
-                <span style={{ fontSize: '14px', color: '#374151' }}>{row.age}</span>
-                <span><span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '20px', backgroundColor: riskBg[row.risk], color: riskColor[row.risk], fontSize: '12px', fontWeight: '700' }}>{row.risk}</span></span>
-                <span style={{ fontSize: '13px', color: '#475569' }}>{row.date}</span>
-                <span>
-                  <button onClick={() => onNavigate && onNavigate('riskAssessment')}
-                    style={{ background: 'none', border: 'none', color: '#2563eb', fontWeight: '700', fontSize: '13px', cursor: 'pointer', padding: 0 }}
-                    onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
-                    onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}>View</button>
-                </span>
-              </div>
-            ))}
+            {loading ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Loading assessments...</div>
+            ) : recentAssessments.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>No assessments yet. Start a new assessment!</div>
+            ) : (
+              recentAssessments.map((row, i) => (
+                <div key={row._id || i}
+                  style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1.5fr 2fr 1fr', padding: '14px 20px', alignItems: 'center', borderBottom: i < recentAssessments.length - 1 ? '1px solid #f8fafc' : 'none', transition: 'background 0.1s' }}
+                  onMouseOver={e => e.currentTarget.style.background = '#f8fafc'}
+                  onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+                  <span style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>{row.patientName || 'Unknown'}</span>
+                  <span style={{ fontSize: '14px', color: '#374151' }}>{row.age || '-'}</span>
+                  <span><span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '20px', backgroundColor: riskBg[row.riskLevel] || '#f8fafc', color: riskColor[row.riskLevel] || '#64748b', fontSize: '12px', fontWeight: '700' }}>{row.riskLevel || 'Unknown'}</span></span>
+                  <span style={{ fontSize: '13px', color: '#475569' }}>{row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '-'}</span>
+                  <span>
+                    <button onClick={() => onNavigate && onNavigate('riskAssessment')}
+                      style={{ background: 'none', border: 'none', color: '#2563eb', fontWeight: '700', fontSize: '13px', cursor: 'pointer', padding: 0 }}
+                      onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
+                      onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}>View</button>
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </main>

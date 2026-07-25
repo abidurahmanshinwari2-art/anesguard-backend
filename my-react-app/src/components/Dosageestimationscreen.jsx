@@ -39,11 +39,11 @@ const DosageEstimationScreen = ({ onBack, onGenerateReport, onNavigate }) => {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f1f5f9' }}>
+    <div style={{ display: 'flex', height: '100vh', fontFamily: "'Segoe UI', sans-serif", backgroundColor: '#f1f5f9' }}>
       <Sidebar activeLabel="Dosage Estimation" onNavigate={onNavigate} onLogout={() => onNavigate && onNavigate('login')} />
       <main style={{ flex: 1, overflowY: 'auto', padding: '32px 36px' }}>
-        <h1 style={{ fontSize: '21px', fontWeight: '800', color: '#1e293b' }}>Dosage Estimation</h1>
-        <p style={{ fontSize: '13px', color: '#64748b' }}>Calculate educational drug dosage based on patient data</p>
+        <h1 style={{ margin: '0 0 2px', fontSize: '21px', fontWeight: '800', color: '#1e293b' }}>Dosage Estimation</h1>
+        <p style={{ margin: '0 0 24px', fontSize: '13px', color: '#64748b' }}>Calculate educational drug dosage based on patient data</p>
 
         <div style={{ backgroundColor: '#fff', border: '1.5px solid #e5e7eb', borderRadius: '12px', padding: '26px 28px', maxWidth: '640px' }}>
           <div style={{ marginBottom: '20px' }}>
