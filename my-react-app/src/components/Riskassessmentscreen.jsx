@@ -1,157 +1,96 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './sidebar';
-import { getAssessmentById } from '../api/assessments';
 
-const dotColor = { red: '#ef4444', yellow: '#f59e0b', green: '#22c55e' };
-
-// A risk factor's server-calculated "score" (2, 1, etc.) is turned into a
-// dot color for display — 2 = red, 1 = yellow, otherwise green.
-const scoreToColor = (score) => {
-  if (score >= 2) return 'red';
-  if (score === 1) return 'yellow';
-  return 'green';
-};
-
-const levelStyles = {
-  Low:      { bg: '#16a34a', shadow: 'rgba(22,163,74,0.35)' },
-  Moderate: { bg: '#d97706', shadow: 'rgba(217,119,6,0.35)' },
-  High:     { bg: '#ef4444', shadow: 'rgba(239,68,68,0.35)' },
-};
-
-const RiskAssessmentScreen = ({ onBack, onContinue, onNavigate, assessmentId }) => {
-  const [assessment, setAssessment] = useState(null);
-  const [loading, setLoading]       = useState(true);
-  const [loadError, setLoadError]   = useState('');
+const RiskAssessmentScreen = ({ onBack, onContinue, onNavigate }) => {
+  const [riskData, setRiskData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!assessmentId) {
-      setLoadError('No assessment selected. Please start from "New Assessment".');
-      setLoading(false);
-      return;
-    }
+    const fetchRiskData = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
 
-    const loadAssessment = async () => {
       try {
-        const data = await getAssessmentById(assessmentId);
-        setAssessment(data);
-      } catch (err) {
-        console.error('Failed to load assessment:', err);
-        setLoadError('Could not load this assessment. Please try again.');
+        const response = await fetch('https://anesguard-backend.onrender.com/api/assessments', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        const data = await response.json();
+        if (data.success && data.assessments.length > 0) {
+          const latest = data.assessments[data.assessments.length - 1];
+          setRiskData(latest);
+        }
+      } catch (error) {
+        console.error('Error fetching risk data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    loadAssessment();
-  }, [assessmentId]);
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f1f5f9' }}>
-        <Sidebar activeLabel="Risk Assessment" onNavigate={onNavigate} onLogout={() => onNavigate && onNavigate('login')} />
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <p style={{ color: '#64748b' }}>Loading risk assessment...</p>
-        </main>
-      </div>
-    );
-  }
-
-  if (loadError || !assessment) {
-    return (
-      <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f1f5f9' }}>
-        <Sidebar activeLabel="Risk Assessment" onNavigate={onNavigate} onLogout={() => onNavigate && onNavigate('login')} />
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '12px' }}>
-          <p style={{ color: '#dc2626', fontWeight: '600' }}>{loadError || 'Assessment not found.'}</p>
-          <button onClick={() => onNavigate && onNavigate('patientInput')}
-            style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#2563eb', color: '#fff', cursor: 'pointer' }}>
-            Start New Assessment
-          </button>
-        </main>
-      </div>
-    );
-  }
-
-  const levelStyle = levelStyles[assessment.riskLevel] || levelStyles.Low;
+    fetchRiskData();
+  }, []);
 
   return (
-    <div style={{ display: 'flex', height: '100vh', fontFamily: "'Segoe UI', sans-serif", backgroundColor: '#f1f5f9' }}>
-
+    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f1f5f9' }}>
       <Sidebar activeLabel="Risk Assessment" onNavigate={onNavigate} onLogout={() => onNavigate && onNavigate('login')} />
-
       <main style={{ flex: 1, overflowY: 'auto', padding: '32px 36px' }}>
-        <h1 style={{ margin: '0 0 2px', fontSize: '21px', fontWeight: '800', color: '#1e293b' }}>Risk Assessment Result</h1>
-        <p style={{ margin: '0 0 22px', fontSize: '13px', color: '#64748b' }}>
-          Based on the entered patient information for {assessment.patientName}
-        </p>
+        <h1 style={{ fontSize: '21px', fontWeight: '800', color: '#1e293b' }}>Risk Assessment Result</h1>
+        <p style={{ fontSize: '13px', color: '#64748b' }}>Based on the entered patient information</p>
 
-        {/* Top row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: '16px', marginBottom: '16px' }}>
-
-          {/* Overall Risk Level */}
-          <div style={{ backgroundColor: '#fff', border: '1.5px solid #e5e7eb', borderRadius: '12px', padding: '24px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
-            <p style={{ margin: 0, fontSize: '13.5px', fontWeight: '700', color: '#374151', textAlign: 'center' }}>Overall Risk Level</p>
-            <div style={{ backgroundColor: levelStyle.bg, borderRadius: '10px', padding: '14px 36px', textAlign: 'center', boxShadow: `0 4px 14px ${levelStyle.shadow}` }}>
-              <span style={{ color: '#fff', fontWeight: '800', fontSize: '22px' }}>{assessment.riskLevel} Risk</span>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <p style={{ margin: '0 0 4px', fontSize: '12.5px', fontWeight: '600', color: '#64748b' }}>Risk Score</p>
-              <p style={{ margin: 0, fontSize: '28px', fontWeight: '800', color: '#1e293b', lineHeight: 1 }}>
-                {assessment.riskScore} <span style={{ fontSize: '18px', color: '#94a3b8', fontWeight: '600' }}>/ 12</span>
-              </p>
-            </div>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '60px' }}>
+            <div style={{ width: '40px', height: '40px', border: '4px solid #e5e7eb', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+            <p>Loading risk assessment...</p>
           </div>
+        ) : riskData ? (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: '16px', marginBottom: '16px' }}>
+              <div style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '24px 20px', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+                <p style={{ margin: 0, fontSize: '13.5px', fontWeight: '700', color: '#374151' }}>Overall Risk Level</p>
+                <div style={{ backgroundColor: riskData.riskLevel === 'High' ? '#ef4444' : riskData.riskLevel === 'Moderate' ? '#d97706' : '#16a34a', borderRadius: '10px', padding: '14px 36px', margin: '12px auto', display: 'inline-block' }}>
+                  <span style={{ color: '#fff', fontWeight: '800', fontSize: '22px' }}>{riskData.riskLevel || 'Unknown'}</span>
+                </div>
+                <p style={{ margin: 0, fontSize: '12.5px', fontWeight: '600', color: '#64748b' }}>Risk Score</p>
+                <p style={{ margin: 0, fontSize: '28px', fontWeight: '800', color: '#1e293b' }}>{riskData.riskScore || 0} <span style={{ fontSize: '18px', color: '#94a3b8' }}>/ 12</span></p>
+              </div>
 
-          {/* Risk Factors */}
-          <div style={{ backgroundColor: '#fff', border: '1.5px solid #e5e7eb', borderRadius: '12px', padding: '22px 24px' }}>
-            <p style={{ margin: '0 0 14px', fontSize: '13.5px', fontWeight: '700', color: '#374151' }}>Risk Factors</p>
-            {assessment.riskFactors && assessment.riskFactors.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
-                {assessment.riskFactors.map((factor, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: dotColor[scoreToColor(factor.score)], flexShrink: 0, display: 'inline-block' }} />
-                      <span style={{ fontSize: '13.5px', color: '#374151' }}>{factor.label}</span>
-                    </div>
-                    <span style={{ fontWeight: '700', fontSize: '14px', color: dotColor[scoreToColor(factor.score)] }}>{factor.score}</span>
+              <div style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '22px 24px', border: '1px solid #e5e7eb' }}>
+                <p style={{ margin: '0 0 14px', fontSize: '13.5px', fontWeight: '700', color: '#374151' }}>Risk Factors</p>
+                {(riskData.riskFactors || []).map((factor, index) => (
+                  <div key={index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
+                    <span style={{ fontSize: '13.5px', color: '#374151' }}>{factor}</span>
+                    <span style={{ fontWeight: '700', fontSize: '14px', color: '#dc2626' }}>✓</span>
                   </div>
                 ))}
               </div>
-            ) : (
-              <p style={{ fontSize: '13px', color: '#94a3b8' }}>No risk factors identified — this patient is low risk.</p>
-            )}
-          </div>
-        </div>
+            </div>
 
-        {/* Interpretation */}
-        <div style={{ backgroundColor: '#fff', border: '1.5px solid #e5e7eb', borderRadius: '12px', padding: '20px 24px', marginBottom: '14px' }}>
-          <p style={{ margin: '0 0 8px', fontSize: '13.5px', fontWeight: '700', color: '#1e293b' }}>Interpretation</p>
-          <p style={{ margin: 0, fontSize: '13.5px', color: '#475569', lineHeight: '1.6' }}>
-            {assessment.riskLevel === 'Low'
-              ? 'This patient currently shows a low number of risk factors for peri-operative complications.'
-              : 'This patient has multiple risk factors that may increase the possibility of peri-operative complications.'}
-          </p>
-        </div>
+            <div style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '20px 24px', border: '1px solid #e5e7eb', marginBottom: '14px' }}>
+              <p style={{ margin: '0 0 8px', fontSize: '13.5px', fontWeight: '700', color: '#1e293b' }}>Interpretation</p>
+              <p style={{ margin: 0, fontSize: '13.5px', color: '#475569' }}>
+                {riskData.riskLevel === 'High' ? 'This patient has multiple risk factors that may increase the possibility of peri-operative complications.' :
+                 riskData.riskLevel === 'Moderate' ? 'This patient has some risk factors that require careful monitoring.' :
+                 'This patient has minimal risk factors. Proceed with standard protocol.'}
+              </p>
+            </div>
 
-        {/* Recommendations */}
-        <div style={{ backgroundColor: '#fff', border: '1.5px solid #e5e7eb', borderRadius: '12px', padding: '20px 24px', marginBottom: '28px' }}>
-          <p style={{ margin: '0 0 12px', fontSize: '13.5px', fontWeight: '700', color: '#1e293b' }}>Recommendations</p>
-          <ul style={{ margin: 0, paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {(assessment.recommendations || []).map((rec, i) => (
-              <li key={i} style={{ fontSize: '13.5px', color: '#475569', lineHeight: '1.5' }}>{rec}</li>
-            ))}
-          </ul>
-        </div>
+            <div style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '20px 24px', border: '1px solid #e5e7eb', marginBottom: '28px' }}>
+              <p style={{ margin: '0 0 12px', fontSize: '13.5px', fontWeight: '700', color: '#1e293b' }}>Recommendations</p>
+              <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                <li style={{ fontSize: '13.5px', color: '#475569', marginBottom: '4px' }}>Thorough pre-anesthesia evaluation recommended.</li>
+                <li style={{ fontSize: '13.5px', color: '#475569', marginBottom: '4px' }}>Optimize comorbid conditions before surgery.</li>
+                <li style={{ fontSize: '13.5px', color: '#475569' }}>Consider additional monitoring.</li>
+              </ul>
+            </div>
+          </>
+        ) : (
+          <p style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>No assessment data available. Please create an assessment first.</p>
+        )}
 
-        {/* Buttons */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-          <button onClick={onBack}
-            style={{ padding: '10px 32px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '14px', fontWeight: '600', color: '#374151', cursor: 'pointer', transition: 'all 0.15s' }}
-            onMouseOver={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.background = '#f8fafc'; }}
-            onMouseOut={e => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.background = '#fff'; }}>Back</button>
-          <button onClick={onContinue}
-            style={{ padding: '10px 28px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', fontSize: '14px', fontWeight: '600', color: '#fff', cursor: 'pointer', boxShadow: '0 3px 10px rgba(37,99,235,0.35)', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
-            onMouseOver={e => { e.currentTarget.style.background = 'linear-gradient(135deg,#1d4ed8,#1e40af)'; }}
-            onMouseOut={e => { e.currentTarget.style.background = 'linear-gradient(135deg,#2563eb,#1d4ed8)'; }}>Continue to Dosage Estimation</button>
+          <button onClick={onBack} style={{ padding: '10px 32px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '14px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>Back</button>
+          <button onClick={onContinue} style={{ padding: '10px 28px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', fontSize: '14px', fontWeight: '600', color: '#fff', cursor: 'pointer' }}>Continue to Dosage Estimation</button>
         </div>
       </main>
     </div>

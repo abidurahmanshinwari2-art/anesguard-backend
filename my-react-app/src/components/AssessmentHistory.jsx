@@ -71,7 +71,6 @@ const AssessmentHistory = ({ onNavigate }) => {
           </div>
         </div>
 
-        {/* Filters */}
         <div style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '16px 20px', marginBottom: '20px', border: '1px solid #e5e7eb', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
             <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
@@ -93,7 +92,6 @@ const AssessmentHistory = ({ onNavigate }) => {
           </select>
         </div>
 
-        {/* Table */}
         <div style={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
           {loading ? (
             <div style={{ padding: '60px', textAlign: 'center' }}>

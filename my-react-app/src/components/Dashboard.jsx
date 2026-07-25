@@ -87,7 +87,6 @@ const StudentDashboard = ({ onLogout, onNavigate }) => {
         </header>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
-          {/* Stat Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px', marginBottom: '24px' }}>
             {updatedStatCards.map(card => (
               <div key={card.label} style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', borderTop: `3px solid ${card.accent}` }}>
@@ -98,7 +97,6 @@ const StudentDashboard = ({ onLogout, onNavigate }) => {
             ))}
           </div>
 
-          {/* Quick Actions */}
           <h2 style={{ margin: '0 0 14px', fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>Quick Actions</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '14px', marginBottom: '24px' }}>
             {quickActions.map(action => (
@@ -113,7 +111,6 @@ const StudentDashboard = ({ onLogout, onNavigate }) => {
             ))}
           </div>
 
-          {/* Recent Assessments */}
           <div style={{ backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9' }}>
               <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>Recent Assessments</h3>

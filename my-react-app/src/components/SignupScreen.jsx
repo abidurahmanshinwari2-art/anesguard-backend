@@ -115,7 +115,6 @@ const SignupScreen = ({ onSwitchToLogin }) => {
         display: 'flex',
         minHeight: '580px'
       }}>
-        {/* LEFT PANEL */}
         <div style={{
           flex: '0 0 42%',
           background: 'linear-gradient(160deg,#e8f0fe 0%,#dce8fd 60%,#cddcfb 100%)',
@@ -156,13 +155,11 @@ const SignupScreen = ({ onSwitchToLogin }) => {
           </svg>
         </div>
 
-        {/* RIGHT PANEL */}
         <div style={{ flex: 1, padding: '40px 36px', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflowY: 'auto' }}>
           <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: '0 0 4px', textAlign: 'center' }}>Create Account</h2>
           <p style={{ fontSize: '13px', color: '#6b7280', textAlign: 'center', margin: '0 0 24px' }}>Register to access the system</p>
 
           <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {/* Full Name */}
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Full Name</label>
               <div style={{ position: 'relative' }}>
@@ -183,7 +180,6 @@ const SignupScreen = ({ onSwitchToLogin }) => {
               {errors.fullName && <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#ef4444' }}>{errors.fullName}</p>}
             </div>
 
-            {/* Email */}
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Email Address</label>
               <div style={{ position: 'relative' }}>
@@ -204,7 +200,6 @@ const SignupScreen = ({ onSwitchToLogin }) => {
               {errors.email && <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#ef4444' }}>{errors.email}</p>}
             </div>
 
-            {/* Phone */}
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Phone Number</label>
               <div style={{ position: 'relative' }}>
@@ -225,7 +220,6 @@ const SignupScreen = ({ onSwitchToLogin }) => {
               {errors.phone && <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#ef4444' }}>{errors.phone}</p>}
             </div>
 
-            {/* Department & Employee ID */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Department</label>
@@ -275,7 +269,6 @@ const SignupScreen = ({ onSwitchToLogin }) => {
               </div>
             </div>
 
-            {/* Password */}
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Password</label>
               <div style={{ position: 'relative' }}>
@@ -313,7 +306,6 @@ const SignupScreen = ({ onSwitchToLogin }) => {
               {errors.password && <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#ef4444' }}>{errors.password}</p>}
             </div>
 
-            {/* Confirm Password */}
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Confirm Password</label>
               <div style={{ position: 'relative' }}>
@@ -351,7 +343,6 @@ const SignupScreen = ({ onSwitchToLogin }) => {
               {errors.confirmPassword && <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#ef4444' }}>{errors.confirmPassword}</p>}
             </div>
 
-            {/* Auth Error Banner */}
             {authError && (
               <div style={{
                 padding: '10px 14px',
@@ -371,7 +362,6 @@ const SignupScreen = ({ onSwitchToLogin }) => {
               </div>
             )}
 
-            {/* Sign Up Button */}
             <button
               type="submit"
               disabled={loading}
@@ -411,7 +401,6 @@ const SignupScreen = ({ onSwitchToLogin }) => {
               ) : 'Sign Up'}
             </button>
 
-            {/* Login Link */}
             <p style={{ textAlign: 'center', fontSize: '13px', color: '#6b7280', margin: 0 }}>
               Already have an account?{' '}
               <button

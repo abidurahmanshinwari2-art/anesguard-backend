@@ -149,7 +149,6 @@ const LoginScreen = ({ onSwitchToSignup, onLoginSuccess }) => {
           <p style={{ fontSize: '13px', color: '#6b7280', textAlign: 'center', margin: '0 0 28px' }}>Login to continue</p>
 
           <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {/* Email Field */}
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Email Address</label>
               <div style={{ position: 'relative' }}>
@@ -170,7 +169,6 @@ const LoginScreen = ({ onSwitchToSignup, onLoginSuccess }) => {
               {errors.email && <p style={{ margin: '5px 0 0', fontSize: '12px', color: '#ef4444' }}>{errors.email}</p>}
             </div>
 
-            {/* Password Field */}
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Password</label>
               <div style={{ position: 'relative' }}>
@@ -208,7 +206,6 @@ const LoginScreen = ({ onSwitchToSignup, onLoginSuccess }) => {
               {errors.password && <p style={{ margin: '5px 0 0', fontSize: '12px', color: '#ef4444' }}>{errors.password}</p>}
             </div>
 
-            {/* Remember Me + Forgot Password */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                 <input
@@ -221,7 +218,6 @@ const LoginScreen = ({ onSwitchToSignup, onLoginSuccess }) => {
               </label>
             </div>
 
-            {/* Auth Error Banner */}
             {authError && (
               <div style={{
                 padding: '10px 14px',
@@ -241,7 +237,6 @@ const LoginScreen = ({ onSwitchToSignup, onLoginSuccess }) => {
               </div>
             )}
 
-            {/* Login Button */}
             <button
               type="submit"
               disabled={loading}
@@ -281,7 +276,6 @@ const LoginScreen = ({ onSwitchToSignup, onLoginSuccess }) => {
               ) : 'Login'}
             </button>
 
-            {/* Sign up link */}
             <p style={{ textAlign: 'center', fontSize: '13px', color: '#6b7280', margin: 0 }}>
               Don't have an account?{' '}
               <button
