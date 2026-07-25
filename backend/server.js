@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const mongoose = require('mongoose');
 const connectDB = require('./src/config/db');
 const User = require('./src/models/User');
 const Assessment = require('./src/models/Assessment');
@@ -63,32 +64,28 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // ============================================
-// ✅ ASSESSMENT ROUTES - FIXED!
+// ✅ ASSESSMENT ROUTES - COMPLETE FIX
 // ============================================
 
 // CREATE Assessment
 app.post('/api/assessments', async (req, res) => {
   try {
-    console.log('📝 Received assessment data:', req.body);
+    console.log('📝 Creating assessment...');
     
     const data = req.body;
     const userId = req.headers.userid;
 
-    console.log('👤 User ID from header:', userId);
-
-    // ✅ FIX: Use the actual user ID or create a valid one
+    // Get valid user ID
     let userIdToUse = userId;
     
-    // If no userId, get the first user from database or create a valid ObjectId
-    if (!userIdToUse) {
+    if (!userIdToUse || userIdToUse === 'test-user-id' || userIdToUse === 'undefined') {
       const firstUser = await User.findOne();
       if (firstUser) {
         userIdToUse = firstUser._id;
         console.log('👤 Using first user:', userIdToUse);
       } else {
-        // If no user exists, create a valid ObjectId
         userIdToUse = new mongoose.Types.ObjectId();
-        console.log('👤 No user found, creating new ObjectId:', userIdToUse);
+        console.log('👤 Creating new ObjectId:', userIdToUse);
       }
     }
 
@@ -122,7 +119,7 @@ app.post('/api/assessments', async (req, res) => {
     else if (riskScore >= 4) riskLevel = 'Moderate';
     else riskLevel = 'Low';
 
-    // ✅ SAVE TO DATABASE
+    // ✅ Save to database
     const assessmentData = {
       ...data,
       bmi,
@@ -133,11 +130,8 @@ app.post('/api/assessments', async (req, res) => {
       createdBy: userIdToUse
     };
 
-    console.log('💾 Saving assessment:', assessmentData);
-
     const assessment = await Assessment.create(assessmentData);
-
-    console.log('✅ Assessment saved successfully:', assessment._id);
+    console.log('✅ Assessment saved:', assessment._id);
 
     res.status(201).json({
       success: true,
@@ -149,11 +143,49 @@ app.post('/api/assessments', async (req, res) => {
     console.error('❌ Assessment error:', error);
     res.status(500).json({ 
       success: false, 
-      message: error.message,
-      stack: error.stack 
+      message: error.message 
     });
   }
 });
+
+// GET All Assessments
+app.get('/api/assessments', async (req, res) => {
+  try {
+    const assessments = await Assessment.find().sort({ createdAt: -1 });
+    console.log(`📊 Found ${assessments.length} assessments`);
+
+    res.json({
+      success: true,
+      assessments,
+      pagination: { page: 1, limit: 10, total: assessments.length, pages: 1 }
+    });
+  } catch (error) {
+    console.error('❌ Error fetching assessments:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET Assessment Stats
+app.get('/api/assessments/stats', async (req, res) => {
+  try {
+    const total = await Assessment.countDocuments();
+    const low = await Assessment.countDocuments({ riskLevel: 'Low' });
+    const moderate = await Assessment.countDocuments({ riskLevel: 'Moderate' });
+    const high = await Assessment.countDocuments({ riskLevel: 'High' });
+    const pending = await Assessment.countDocuments({ status: 'Pending' });
+    const completed = await Assessment.countDocuments({ status: 'Completed' });
+    
+    console.log('📊 Stats:', { total, low, moderate, high, pending, completed });
+
+    res.json({
+      success: true,
+      stats: { total, low, moderate, high, pending, completed }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // ============================================
 // ✅ HEALTH CHECK
 // ============================================

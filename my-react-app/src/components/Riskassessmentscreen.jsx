@@ -10,7 +10,6 @@ const RiskAssessmentScreen = ({ onBack, onContinue, onNavigate }) => {
   useEffect(() => {
     const fetchRiskData = async () => {
       const token = localStorage.getItem('token');
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
       
       if (!token) {
         setLoading(false);
@@ -18,19 +17,27 @@ const RiskAssessmentScreen = ({ onBack, onContinue, onNavigate }) => {
       }
 
       try {
+        console.log('🔄 Fetching assessments for risk assessment...');
+        
         const response = await fetch('https://anesguard-backend.onrender.com/api/assessments', {
           headers: {
             'Authorization': `Bearer ${token}`,
-            'userid': user.id || user._id,
           },
         });
+        
         const data = await response.json();
-        if (data.success && data.assessments.length > 0) {
+        console.log('📊 Assessments response:', data);
+        
+        if (data.success && data.assessments && data.assessments.length > 0) {
+          // Get the most recent assessment
           const latest = data.assessments[0];
           setRiskData(latest);
+          console.log('✅ Latest assessment:', latest);
+        } else {
+          console.log('ℹ️ No assessments found');
         }
       } catch (error) {
-        console.error('Error fetching risk data:', error);
+        console.error('❌ Error fetching risk data:', error);
       } finally {
         setLoading(false);
       }
@@ -52,6 +59,11 @@ const RiskAssessmentScreen = ({ onBack, onContinue, onNavigate }) => {
     'Optimize comorbid conditions before surgery.',
     'Consider additional monitoring.',
   ];
+
+  // If data exists but no risk factors, use default for display
+  const displayRiskFactors = riskData?.riskFactors?.length > 0 
+    ? riskData.riskFactors 
+    : defaultRiskFactors.map(f => f.label);
 
   return (
     <div style={{ display: 'flex', height: '100vh', fontFamily: "'Segoe UI', sans-serif", backgroundColor: '#f1f5f9' }}>
@@ -84,7 +96,7 @@ const RiskAssessmentScreen = ({ onBack, onContinue, onNavigate }) => {
               <div style={{ backgroundColor: '#fff', border: '1.5px solid #e5e7eb', borderRadius: '12px', padding: '22px 24px' }}>
                 <p style={{ margin: '0 0 14px', fontSize: '13.5px', fontWeight: '700', color: '#374151' }}>Risk Factors</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
-                  {(riskData.riskFactors && riskData.riskFactors.length > 0 ? riskData.riskFactors : defaultRiskFactors.map(f => f.label)).map((factor, i) => {
+                  {displayRiskFactors.map((factor, i) => {
                     const color = defaultRiskFactors.find(f => f.label === factor)?.color || 'yellow';
                     const score = defaultRiskFactors.find(f => f.label === factor)?.score || 1;
                     return (
@@ -125,10 +137,16 @@ const RiskAssessmentScreen = ({ onBack, onContinue, onNavigate }) => {
           <div style={{ textAlign: 'center', padding: '60px', backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
             <p style={{ fontSize: '16px', color: '#64748b' }}>No assessment data available.</p>
             <p style={{ fontSize: '13px', color: '#94a3b8', marginTop: '8px' }}>Please create an assessment first.</p>
+            <button 
+              onClick={() => onNavigate && onNavigate('patientInput')}
+              style={{ marginTop: '16px', padding: '10px 24px', borderRadius: '8px', border: 'none', background: '#2563eb', color: '#fff', fontWeight: '600', cursor: 'pointer' }}
+            >
+              Start New Assessment
+            </button>
           </div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
           <button onClick={onBack}
             style={{ padding: '10px 32px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '14px', fontWeight: '600', color: '#374151', cursor: 'pointer', transition: 'all 0.15s' }}
             onMouseOver={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.background = '#f8fafc'; }}
