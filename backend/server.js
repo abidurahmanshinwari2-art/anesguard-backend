@@ -91,7 +91,7 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // ============================================
-// ✅ ASSESSMENT ROUTES (NEW!)
+// ✅ ASSESSMENT ROUTES
 // ============================================
 
 // CREATE Assessment
@@ -115,34 +115,58 @@ app.post('/api/assessments', async (req, res) => {
       bmi = weight / ((height / 100) ** 2);
     }
 
-    // Calculate risk level (simple logic)
+    // Calculate risk level
     let riskScore = 0;
     let riskLevel = 'Low';
+    let riskFactors = [];
     
-    if (assessmentData.age > 60) riskScore += 2;
-    else if (assessmentData.age > 50) riskScore += 1;
+    if (assessmentData.age > 60) {
+      riskScore += 2;
+      riskFactors.push('Age > 60 years');
+    } else if (assessmentData.age > 50) {
+      riskScore += 1;
+      riskFactors.push('Age > 50 years');
+    }
     
-    if (bmi && bmi > 30) riskScore += 2;
-    else if (bmi && bmi > 25) riskScore += 1;
+    if (bmi && bmi > 30) {
+      riskScore += 2;
+      riskFactors.push('BMI > 30');
+    } else if (bmi && bmi > 25) {
+      riskScore += 1;
+      riskFactors.push('BMI > 25');
+    }
     
     if (assessmentData.medHistory) {
-      if (assessmentData.medHistory.Hypertension) riskScore += 2;
-      if (assessmentData.medHistory['Diabetes Mellitus']) riskScore += 1;
-      if (assessmentData.medHistory['Respiratory Disease']) riskScore += 1;
-      if (assessmentData.medHistory['Cardiac Disease']) riskScore += 2;
+      if (assessmentData.medHistory.Hypertension) {
+        riskScore += 2;
+        riskFactors.push('Hypertension');
+      }
+      if (assessmentData.medHistory['Diabetes Mellitus']) {
+        riskScore += 1;
+        riskFactors.push('Diabetes Mellitus');
+      }
+      if (assessmentData.medHistory['Respiratory Disease']) {
+        riskScore += 1;
+        riskFactors.push('Respiratory Disease');
+      }
+      if (assessmentData.medHistory['Cardiac Disease']) {
+        riskScore += 2;
+        riskFactors.push('Cardiac Disease');
+      }
     }
     
     if (riskScore >= 7) riskLevel = 'High';
     else if (riskScore >= 4) riskLevel = 'Moderate';
     else riskLevel = 'Low';
 
-    // Save assessment (in memory for now - will save to MongoDB later)
+    // Save assessment
     const assessment = {
       id: Date.now().toString(),
       ...assessmentData,
       bmi: bmi ? bmi.toFixed(1) : '--',
       riskScore,
       riskLevel,
+      riskFactors,
       status: 'Pending',
       createdAt: new Date().toISOString()
     };
