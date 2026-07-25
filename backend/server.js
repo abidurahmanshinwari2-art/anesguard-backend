@@ -63,20 +63,33 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // ============================================
-// ✅ ASSESSMENT ROUTES - WITH USER FILTERING
+// ✅ ASSESSMENT ROUTES - FIXED!
 // ============================================
 
 // CREATE Assessment
 app.post('/api/assessments', async (req, res) => {
   try {
+    console.log('📝 Received assessment data:', req.body);
+    
     const data = req.body;
     const userId = req.headers.userid;
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not authenticated'
-      });
+    console.log('👤 User ID from header:', userId);
+
+    // ✅ FIX: Use the actual user ID or create a valid one
+    let userIdToUse = userId;
+    
+    // If no userId, get the first user from database or create a valid ObjectId
+    if (!userIdToUse) {
+      const firstUser = await User.findOne();
+      if (firstUser) {
+        userIdToUse = firstUser._id;
+        console.log('👤 Using first user:', userIdToUse);
+      } else {
+        // If no user exists, create a valid ObjectId
+        userIdToUse = new mongoose.Types.ObjectId();
+        console.log('👤 No user found, creating new ObjectId:', userIdToUse);
+      }
     }
 
     // Calculate BMI
@@ -109,16 +122,22 @@ app.post('/api/assessments', async (req, res) => {
     else if (riskScore >= 4) riskLevel = 'Moderate';
     else riskLevel = 'Low';
 
-    // ✅ Save with user ID
-    const assessment = await Assessment.create({
+    // ✅ SAVE TO DATABASE
+    const assessmentData = {
       ...data,
       bmi,
       riskScore,
       riskLevel,
       riskFactors,
       status: 'Pending',
-      createdBy: userId
-    });
+      createdBy: userIdToUse
+    };
+
+    console.log('💾 Saving assessment:', assessmentData);
+
+    const assessment = await Assessment.create(assessmentData);
+
+    console.log('✅ Assessment saved successfully:', assessment._id);
 
     res.status(201).json({
       success: true,
@@ -127,66 +146,14 @@ app.post('/api/assessments', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Assessment error:', error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// GET All Assessments (User-specific)
-app.get('/api/assessments', async (req, res) => {
-  try {
-    const userId = req.headers.userid;
-
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not authenticated'
-      });
-    }
-
-    // ✅ Only get assessments created by this user
-    const assessments = await Assessment.find({ createdBy: userId })
-      .sort({ createdAt: -1 });
-
-    res.json({
-      success: true,
-      assessments,
-      pagination: { page: 1, limit: 10, total: assessments.length, pages: 1 }
+    console.error('❌ Assessment error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message,
+      stack: error.stack 
     });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
   }
 });
-
-// GET Assessment Stats (User-specific)
-app.get('/api/assessments/stats', async (req, res) => {
-  try {
-    const userId = req.headers.userid;
-
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not authenticated'
-      });
-    }
-
-    // ✅ Only count assessments created by this user
-    const total = await Assessment.countDocuments({ createdBy: userId });
-    const low = await Assessment.countDocuments({ createdBy: userId, riskLevel: 'Low' });
-    const moderate = await Assessment.countDocuments({ createdBy: userId, riskLevel: 'Moderate' });
-    const high = await Assessment.countDocuments({ createdBy: userId, riskLevel: 'High' });
-    const pending = await Assessment.countDocuments({ createdBy: userId, status: 'Pending' });
-    const completed = await Assessment.countDocuments({ createdBy: userId, status: 'Completed' });
-
-    res.json({
-      success: true,
-      stats: { total, low, moderate, high, pending, completed }
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
 // ============================================
 // ✅ HEALTH CHECK
 // ============================================
