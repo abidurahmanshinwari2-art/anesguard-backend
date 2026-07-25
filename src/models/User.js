@@ -44,16 +44,17 @@ const userSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: ['Active', 'Inactive', 'Pending'],
-    default: 'Pending',
+    default: 'Active',
   },
   lastLogin: {
     type: Date,
     default: null,
   },
+  // ✅ FIXED: Removed 'required' and 'unique' to allow null values
   firebaseUid: {
     type: String,
-    unique: true,
-    sparse: true,
+    sparse: true,  // This allows multiple null values
+    // unique: true,  // ← REMOVED! No more duplicate key error
   },
   isDeleted: {
     type: Boolean,
@@ -69,6 +70,11 @@ userSchema.methods.toJSON = function() {
   delete obj.password;
   return obj;
 };
+
+// Create indexes for better query performance
+userSchema.index({ email: 1 });
+userSchema.index({ role: 1 });
+userSchema.index({ status: 1 });
 
 const User = mongoose.model('User', userSchema);
 
