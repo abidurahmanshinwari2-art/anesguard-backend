@@ -11,6 +11,8 @@ const AssessmentHistory = ({ onNavigate }) => {
   useEffect(() => {
     const fetchAssessments = async () => {
       const token = localStorage.getItem('token');
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      
       if (!token) {
         setLoading(false);
         return;
@@ -18,7 +20,10 @@ const AssessmentHistory = ({ onNavigate }) => {
 
       try {
         const response = await fetch('https://anesguard-backend.onrender.com/api/assessments', {
-          headers: { 'Authorization': `Bearer ${token}` },
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'userid': user.id || user._id,
+          },
         });
         const data = await response.json();
         if (data.success) {

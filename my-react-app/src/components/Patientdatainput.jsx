@@ -84,6 +84,8 @@ const PatientDataInput = ({ onSaveAndContinue, onNavigate }) => {
     }
 
     const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    
     if (!token) {
       alert('Please login again');
       return;
@@ -95,6 +97,7 @@ const PatientDataInput = ({ onSaveAndContinue, onNavigate }) => {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+          'userid': user.id || user._id,
         },
         body: JSON.stringify(form),
       });

@@ -22,6 +22,8 @@ const EditAssessment = ({ onNavigate, assessmentId }) => {
   useEffect(() => {
     const fetchAssessment = async () => {
       const token = localStorage.getItem('token');
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      
       if (!token) {
         setLoading(false);
         return;
@@ -29,7 +31,10 @@ const EditAssessment = ({ onNavigate, assessmentId }) => {
 
       try {
         const response = await fetch(`https://anesguard-backend.onrender.com/api/assessments/${assessmentId || ''}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'userid': user.id || user._id,
+          },
         });
         const data = await response.json();
         if (data.success && data.assessment) {
@@ -81,6 +86,8 @@ const EditAssessment = ({ onNavigate, assessmentId }) => {
 
     setSaving(true);
     const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    
     if (!token) {
       alert('Please login again');
       setSaving(false);
@@ -93,6 +100,7 @@ const EditAssessment = ({ onNavigate, assessmentId }) => {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+          'userid': user.id || user._id,
         },
         body: JSON.stringify(formData),
       });

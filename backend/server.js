@@ -63,14 +63,22 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // ============================================
-// ✅ ASSESSMENT ROUTES - NOW WITH MONGODB!
+// ✅ ASSESSMENT ROUTES - WITH USER FILTERING
 // ============================================
 
 // CREATE Assessment
 app.post('/api/assessments', async (req, res) => {
   try {
     const data = req.body;
-    
+    const userId = req.headers.userid;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+
     // Calculate BMI
     const height = parseFloat(data.height);
     const weight = parseFloat(data.weight);
@@ -101,14 +109,15 @@ app.post('/api/assessments', async (req, res) => {
     else if (riskScore >= 4) riskLevel = 'Moderate';
     else riskLevel = 'Low';
 
-    // ✅ SAVE TO MONGODB
+    // ✅ Save with user ID
     const assessment = await Assessment.create({
       ...data,
       bmi,
       riskScore,
       riskLevel,
       riskFactors,
-      status: 'Pending'
+      status: 'Pending',
+      createdBy: userId
     });
 
     res.status(201).json({
@@ -123,10 +132,22 @@ app.post('/api/assessments', async (req, res) => {
   }
 });
 
-// GET All Assessments
+// GET All Assessments (User-specific)
 app.get('/api/assessments', async (req, res) => {
   try {
-    const assessments = await Assessment.find().sort({ createdAt: -1 });
+    const userId = req.headers.userid;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+
+    // ✅ Only get assessments created by this user
+    const assessments = await Assessment.find({ createdBy: userId })
+      .sort({ createdAt: -1 });
+
     res.json({
       success: true,
       assessments,
@@ -137,16 +158,26 @@ app.get('/api/assessments', async (req, res) => {
   }
 });
 
-// GET Assessment Stats
+// GET Assessment Stats (User-specific)
 app.get('/api/assessments/stats', async (req, res) => {
   try {
-    const total = await Assessment.countDocuments();
-    const low = await Assessment.countDocuments({ riskLevel: 'Low' });
-    const moderate = await Assessment.countDocuments({ riskLevel: 'Moderate' });
-    const high = await Assessment.countDocuments({ riskLevel: 'High' });
-    const pending = await Assessment.countDocuments({ status: 'Pending' });
-    const completed = await Assessment.countDocuments({ status: 'Completed' });
-    
+    const userId = req.headers.userid;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+
+    // ✅ Only count assessments created by this user
+    const total = await Assessment.countDocuments({ createdBy: userId });
+    const low = await Assessment.countDocuments({ createdBy: userId, riskLevel: 'Low' });
+    const moderate = await Assessment.countDocuments({ createdBy: userId, riskLevel: 'Moderate' });
+    const high = await Assessment.countDocuments({ createdBy: userId, riskLevel: 'High' });
+    const pending = await Assessment.countDocuments({ createdBy: userId, status: 'Pending' });
+    const completed = await Assessment.countDocuments({ createdBy: userId, status: 'Completed' });
+
     res.json({
       success: true,
       stats: { total, low, moderate, high, pending, completed }

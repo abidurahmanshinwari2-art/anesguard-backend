@@ -16,8 +16,18 @@ const assessmentSchema = new mongoose.Schema({
   riskScore: { type: Number, default: 0 },
   riskFactors: { type: [String], default: [] },
   status: { type: String, enum: ['Pending', 'Completed'], default: 'Pending' },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  
+  // ✅ Link assessment to user
+  createdBy: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User',
+    required: true 
+  },
+  
   bmi: { type: String, default: '--' },
 }, { timestamps: true });
+
+// ✅ Index for faster queries
+assessmentSchema.index({ createdBy: 1 });
 
 module.exports = mongoose.model('Assessment', assessmentSchema);

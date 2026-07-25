@@ -97,22 +97,32 @@ const ReportSummaryScreen = ({ onBackToDashboard, onNavigate }) => {
   useEffect(() => {
     const fetchData = async () => {
       const token = localStorage.getItem('token');
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      
       if (!token) {
         setLoading(false);
         return;
       }
 
       try {
+        // Fetch stats
         const statsResponse = await fetch('https://anesguard-backend.onrender.com/api/assessments/stats', {
-          headers: { 'Authorization': `Bearer ${token}` },
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'userid': user.id || user._id,
+          },
         });
         const statsData = await statsResponse.json();
         if (statsData.success) {
           setStats(statsData.stats);
         }
 
+        // Fetch assessments
         const assessmentsResponse = await fetch('https://anesguard-backend.onrender.com/api/assessments', {
-          headers: { 'Authorization': `Bearer ${token}` },
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'userid': user.id || user._id,
+          },
         });
         const assessmentsData = await assessmentsResponse.json();
         if (assessmentsData.success) {
