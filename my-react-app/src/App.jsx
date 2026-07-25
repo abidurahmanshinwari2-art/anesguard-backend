@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import LoginScreen from "./components/LoginScreen";
 import SignupScreen from "./components/SignupScreen";
-import StudentDashboard from "./components/Dashbord";
+import StudentDashboard from "./components/Dashboard";  // ✅ Fixed - now matches file name
 import PatientDataInput from "./components/Patientdatainput";
 import RiskAssessmentScreen from "./components/Riskassessmentscreen";
 import DosageEstimationScreen from "./components/Dosageestimationscreen";
