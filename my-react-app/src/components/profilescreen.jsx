@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './sidebar';
 import { User, Mail, Phone, Building, Calendar, Lock, Edit2, Save, X, Camera, Trash2, Upload } from 'lucide-react';
-import { auth, updateProfile } from '../firebase/config';
+import { getMe, updateMe, changePassword } from '../api/users';
 
 const ProfileScreen = ({ onNavigate }) => {
   const [userData, setUserData] = useState({
@@ -26,10 +26,8 @@ const ProfileScreen = ({ onNavigate }) => {
   const [photoLoading, setPhotoLoading] = useState(false);
   const fileInputRef = useRef(null);
 
-  // ✅ Load user data on component mount - FIXED!
   useEffect(() => {
-    const loadUserData = () => {
-      // Try multiple sources for user data
+    const loadUserData = async () => {
       let userInfo = {
         fullName: '',
         email: '',
@@ -39,56 +37,35 @@ const ProfileScreen = ({ onNavigate }) => {
         photoURL: '',
       };
 
-      // Source 1: Check localStorage for saved user data
-      const savedUserData = localStorage.getItem('anesguard_user_data');
+      const savedUserData = localStorage.getItem('user') || localStorage.getItem('anesguard_user_data');
       if (savedUserData) {
         try {
-          const parsed = JSON.parse(savedUserData);
-          userInfo = { ...userInfo, ...parsed };
-          console.log('✅ Loaded user data from localStorage:', userInfo);
+          userInfo = { ...userInfo, ...JSON.parse(savedUserData) };
         } catch (e) {
-          console.log('❌ Error parsing savedUserData:', e);
+          console.error('Error parsing saved user data:', e);
         }
       }
 
-      // Source 2: Check 'user' key from login
-      const userFromLogin = localStorage.getItem('user');
-      if (userFromLogin && !userInfo.fullName) {
-        try {
-          const parsed = JSON.parse(userFromLogin);
-          userInfo = { ...userInfo, ...parsed };
-          console.log('✅ Loaded user data from "user" key:', userInfo);
-        } catch (e) {
-          console.log('❌ Error parsing userFromLogin:', e);
-        }
-      }
-
-      // Source 3: Check Firebase auth
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        if (currentUser.displayName && !userInfo.fullName) {
-          userInfo.fullName = currentUser.displayName;
-        }
-        if (currentUser.email && !userInfo.email) {
-          userInfo.email = currentUser.email;
-        }
-        if (currentUser.photoURL && !userInfo.photoURL) {
-          userInfo.photoURL = currentUser.photoURL;
-        }
-        console.log('✅ Loaded user data from Firebase:', userInfo);
-      }
-
-      // Source 4: Check profile photo
       const savedPhoto = localStorage.getItem('profilePhoto');
-      if (savedPhoto && !userInfo.photoURL) {
-        userInfo.photoURL = savedPhoto;
+      if (savedPhoto && !userInfo.photoURL) userInfo.photoURL = savedPhoto;
+
+      try {
+        const me = await getMe();
+        userInfo = {
+          fullName: me.fullName || '',
+          email: me.email || '',
+          phone: me.phone || '',
+          department: me.department || '',
+          employeeId: me.employeeId || '',
+          photoURL: me.photoURL || userInfo.photoURL || '',
+        };
+      } catch (error) {
+        console.error('Could not load profile from the server:', error);
       }
 
-      // ✅ Set the user data
       setUserData(userInfo);
       setEditForm(userInfo);
-      
-      // ✅ Save to localStorage for persistence
+      localStorage.setItem('user', JSON.stringify(userInfo));
       localStorage.setItem('anesguard_user_data', JSON.stringify(userInfo));
     };
 
@@ -101,29 +78,28 @@ const ProfileScreen = ({ onNavigate }) => {
   };
 
   const handleSaveProfile = async () => {
-    setUserData(editForm);
-    localStorage.setItem('anesguard_user_data', JSON.stringify(editForm));
-    localStorage.setItem('user', JSON.stringify(editForm));
-    
-    if (auth.currentUser) {
-      try {
-        const updateData = {};
-        if (editForm.fullName !== userData.fullName) {
-          updateData.displayName = editForm.fullName;
-        }
-        if (editForm.photoURL !== userData.photoURL) {
-          updateData.photoURL = editForm.photoURL;
-        }
-        if (Object.keys(updateData).length > 0) {
-          await updateProfile(auth.currentUser, updateData);
-        }
-      } catch (error) {
-        console.error('Error updating profile:', error);
-      }
+    setLoading(true);
+    try {
+      const result = await updateMe({
+        fullName: editForm.fullName,
+        phone: editForm.phone,
+        department: editForm.department,
+        employeeId: editForm.employeeId,
+        photoURL: editForm.photoURL,
+      });
+      const saved = result.user || editForm;
+      setUserData(saved);
+      setEditForm(saved);
+      localStorage.setItem('anesguard_user_data', JSON.stringify(saved));
+      localStorage.setItem('user', JSON.stringify(saved));
+      setIsEditing(false);
+      alert('Profile updated successfully.');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert(error.response?.data?.message || 'Could not update profile.');
+    } finally {
+      setLoading(false);
     }
-    
-    setIsEditing(false);
-    alert('✅ Profile updated successfully!');
   };
 
   const handleCancelEdit = () => {
@@ -160,18 +136,16 @@ const ProfileScreen = ({ onNavigate }) => {
     setPasswordError('');
     
     try {
-      const user = auth.currentUser;
-      if (user && user.email) {
-        setPasswordSuccess('Password updated successfully! Please use your new password next login.');
-        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        setTimeout(() => {
-          setShowPasswordModal(false);
-          setPasswordSuccess('');
-        }, 2000);
-      }
+      await changePassword(passwordData.currentPassword, passwordData.newPassword);
+      setPasswordSuccess('Password updated successfully. Use the new password next time you log in.');
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setTimeout(() => {
+        setShowPasswordModal(false);
+        setPasswordSuccess('');
+      }, 2000);
     } catch (error) {
       console.error('Password update error:', error);
-      setPasswordError('Failed to update password. Please try again.');
+      setPasswordError(error.response?.data?.message || 'Failed to update password. Please try again.');
     } finally {
       setLoading(false);
     }

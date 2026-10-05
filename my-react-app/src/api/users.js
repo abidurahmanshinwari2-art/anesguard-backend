@@ -29,3 +29,23 @@ export const getAllUsers = async () => {
   const { data } = await axiosClient.get('/users');
   return data;
 };
+
+export const createUser = async (payload) => {
+  const { data } = await axiosClient.post('/users', payload);
+  return data;
+};
+
+export const updateUserStatus = async (id, status) => {
+  const { data } = await axiosClient.patch(`/users/${id}/status`, { status });
+  return data;
+};
+
+export const deleteUser = async (id) => {
+  const { data } = await axiosClient.delete(`/users/${id}`);
+  return data;
+};
+
+export const changePassword = async (currentPassword, newPassword) => {
+  const { data } = await axiosClient.put('/users/me/password', { currentPassword, newPassword });
+  return data;
+};

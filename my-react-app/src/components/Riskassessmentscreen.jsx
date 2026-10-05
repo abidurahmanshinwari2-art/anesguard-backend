@@ -1,69 +1,61 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './sidebar';
+import { API_URL, authHeaders } from '../api/config';
+
+const FACTOR_META = {
+  'Age > 60 years': { score: 2, color: 'red' },
+  'Age > 50 years': { score: 1, color: 'yellow' },
+  'BMI > 30': { score: 2, color: 'red' },
+  'BMI > 25': { score: 1, color: 'yellow' },
+  Hypertension: { score: 2, color: 'red' },
+  'Diabetes Mellitus': { score: 1, color: 'yellow' },
+  'Respiratory Disease': { score: 1, color: 'yellow' },
+  'Cardiac Disease': { score: 2, color: 'red' },
+  'Kidney Disease': { score: 2, color: 'red' },
+  'Liver Disease': { score: 2, color: 'red' },
+  Smoking: { score: 1, color: 'yellow' },
+};
 
 const dotColor = { red: '#ef4444', yellow: '#f59e0b', green: '#22c55e' };
 
-const RiskAssessmentScreen = ({ onBack, onContinue, onNavigate }) => {
+const RiskAssessmentScreen = ({ assessmentId, onBack, onContinue, onNavigate }) => {
   const [riskData, setRiskData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchRiskData = async () => {
       const token = localStorage.getItem('token');
-      
       if (!token) {
         setLoading(false);
         return;
       }
 
       try {
-        console.log('🔄 Fetching assessments for risk assessment...');
-        
-        const response = await fetch('https://anesguard-backend.onrender.com/api/assessments', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
+        const url = assessmentId
+          ? `${API_URL}/assessments/${assessmentId}`
+          : `${API_URL}/assessments?limit=1`;
+        const response = await fetch(url, { headers: authHeaders() });
         const data = await response.json();
-        console.log('📊 Assessments response:', data);
-        
-        if (data.success && data.assessments && data.assessments.length > 0) {
-          // Get the most recent assessment
-          const latest = data.assessments[0];
-          setRiskData(latest);
-          console.log('✅ Latest assessment:', latest);
-        } else {
-          console.log('ℹ️ No assessments found');
+
+        if (assessmentId && data.success && data.assessment) {
+          setRiskData(data.assessment);
+        } else if (data.success && data.assessments?.length) {
+          setRiskData(data.assessments[0]);
         }
       } catch (error) {
-        console.error('❌ Error fetching risk data:', error);
+        console.error('Error fetching risk data:', error);
       } finally {
         setLoading(false);
       }
     };
 
     fetchRiskData();
-  }, []);
+  }, [assessmentId]);
 
-  const defaultRiskFactors = [
-    { label: 'Age > 60 years', score: 2, color: 'red' },
-    { label: 'BMI > 30', score: 2, color: 'red' },
-    { label: 'Hypertension', score: 2, color: 'red' },
-    { label: 'Diabetes Mellitus', score: 1, color: 'yellow' },
-    { label: 'Respiratory Disease', score: 1, color: 'green' },
-  ];
-
-  const recommendations = [
-    'Thorough pre-anesthesia evaluation recommended.',
-    'Optimize comorbid conditions before surgery.',
-    'Consider additional monitoring.',
-  ];
-
-  // If data exists but no risk factors, use default for display
-  const displayRiskFactors = riskData?.riskFactors?.length > 0 
-    ? riskData.riskFactors 
-    : defaultRiskFactors.map(f => f.label);
+  const displayRiskFactors = Array.isArray(riskData?.riskFactors) ? riskData.riskFactors : [];
+  const recommendations = riskData?.recommendations?.length
+    ? riskData.recommendations
+    : ['Thorough pre-anesthesia evaluation recommended.'];
 
   return (
     <div style={{ display: 'flex', height: '100vh', fontFamily: "'Segoe UI', sans-serif", backgroundColor: '#f1f5f9' }}>
@@ -96,16 +88,17 @@ const RiskAssessmentScreen = ({ onBack, onContinue, onNavigate }) => {
               <div style={{ backgroundColor: '#fff', border: '1.5px solid #e5e7eb', borderRadius: '12px', padding: '22px 24px' }}>
                 <p style={{ margin: '0 0 14px', fontSize: '13.5px', fontWeight: '700', color: '#374151' }}>Risk Factors</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
-                  {displayRiskFactors.map((factor, i) => {
-                    const color = defaultRiskFactors.find(f => f.label === factor)?.color || 'yellow';
-                    const score = defaultRiskFactors.find(f => f.label === factor)?.score || 1;
+                  {displayRiskFactors.length === 0 ? (
+                    <p style={{ margin: 0, fontSize: '13.5px', color: '#64748b' }}>No scored risk factors for this case.</p>
+                  ) : displayRiskFactors.map((factor, i) => {
+                    const meta = FACTOR_META[factor] || { score: 1, color: 'yellow' };
                     return (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: dotColor[color] || '#f59e0b', flexShrink: 0, display: 'inline-block' }} />
+                          <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: dotColor[meta.color] || '#f59e0b', flexShrink: 0, display: 'inline-block' }} />
                           <span style={{ fontSize: '13.5px', color: '#374151' }}>{factor}</span>
                         </div>
-                        <span style={{ fontWeight: '700', fontSize: '14px', color: dotColor[color] || '#f59e0b' }}>{score}</span>
+                        <span style={{ fontWeight: '700', fontSize: '14px', color: dotColor[meta.color] || '#f59e0b' }}>{meta.score}</span>
                       </div>
                     );
                   })}
@@ -151,7 +144,7 @@ const RiskAssessmentScreen = ({ onBack, onContinue, onNavigate }) => {
             style={{ padding: '10px 32px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '14px', fontWeight: '600', color: '#374151', cursor: 'pointer', transition: 'all 0.15s' }}
             onMouseOver={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.background = '#f8fafc'; }}
             onMouseOut={e => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.background = '#fff'; }}>Back</button>
-          <button onClick={onContinue}
+          <button onClick={() => onContinue && onContinue(riskData?._id)}
             style={{ padding: '10px 28px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', fontSize: '14px', fontWeight: '600', color: '#fff', cursor: 'pointer', boxShadow: '0 3px 10px rgba(37,99,235,0.35)', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
             onMouseOver={e => { e.currentTarget.style.background = 'linear-gradient(135deg,#1d4ed8,#1e40af)'; }}
             onMouseOut={e => { e.currentTarget.style.background = 'linear-gradient(135deg,#2563eb,#1d4ed8)'; }}>Continue to Dosage Estimation</button>

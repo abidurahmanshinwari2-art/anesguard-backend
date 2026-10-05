@@ -71,8 +71,7 @@ userSchema.methods.toJSON = function() {
   return obj;
 };
 
-// Create indexes for better query performance
-userSchema.index({ email: 1 });
+// email already has a unique index from the field definition
 userSchema.index({ role: 1 });
 userSchema.index({ status: 1 });
 

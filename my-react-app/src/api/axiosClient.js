@@ -1,15 +1,13 @@
-// src/api/axiosClient.js
 import axios from 'axios';
-import { auth } from '../firebase/config';
+import { API_URL } from './config';
 
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
+  baseURL: API_URL,
 });
 
-axiosClient.interceptors.request.use(async (config) => {
-  const currentUser = auth.currentUser;
-  if (currentUser) {
-    const token = await currentUser.getIdToken();
+axiosClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;

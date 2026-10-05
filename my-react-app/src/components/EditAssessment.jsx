@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './sidebar';
+import { API_URL, authHeaders } from '../api/config';
 
 const medicalHistoryOptions = [
   ['Hypertension', 'Kidney Disease'],
@@ -22,23 +23,22 @@ const EditAssessment = ({ onNavigate, assessmentId }) => {
   useEffect(() => {
     const fetchAssessment = async () => {
       const token = localStorage.getItem('token');
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      
+
       if (!token) {
         setLoading(false);
         return;
       }
 
       try {
-        const response = await fetch(`https://anesguard-backend.onrender.com/api/assessments/${assessmentId || ''}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'userid': user.id || user._id,
-          },
+        const response = await fetch(`${API_URL}/assessments/${assessmentId}`, {
+          headers: authHeaders(),
         });
         const data = await response.json();
         if (data.success && data.assessment) {
-          setFormData(data.assessment);
+          setFormData({
+            ...data.assessment,
+            medHistory: data.assessment.medHistory || {},
+          });
         }
       } catch (error) {
         console.error('Error fetching assessment:', error);
@@ -86,8 +86,7 @@ const EditAssessment = ({ onNavigate, assessmentId }) => {
 
     setSaving(true);
     const token = localStorage.getItem('token');
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    
+
     if (!token) {
       alert('Please login again');
       setSaving(false);
@@ -95,13 +94,9 @@ const EditAssessment = ({ onNavigate, assessmentId }) => {
     }
 
     try {
-      const response = await fetch(`https://anesguard-backend.onrender.com/api/assessments/${assessmentId || ''}`, {
+      const response = await fetch(`${API_URL}/assessments/${assessmentId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'userid': user.id || user._id,
-        },
+        headers: authHeaders(),
         body: JSON.stringify(formData),
       });
       const data = await response.json();

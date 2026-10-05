@@ -15,6 +15,10 @@ const assessmentSchema = new mongoose.Schema({
   riskLevel: { type: String, enum: ['Low', 'Moderate', 'High'], default: 'Low' },
   riskScore: { type: Number, default: 0 },
   riskFactors: { type: [String], default: [] },
+  recommendations: { type: [String], default: [] },
+  drugSelected: { type: String, default: '' },
+  calculatedDose: { type: Number, default: null },
+  doseRange: { type: String, default: '' },
   status: { type: String, enum: ['Pending', 'Completed'], default: 'Pending' },
   
   // ✅ Link assessment to user

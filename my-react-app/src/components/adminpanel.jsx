@@ -1,22 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { getAllUsers } from '../api/users';
-import { getSystemOverview, getRecentActivity } from '../api/admin';
-
-// Shown at the top of tabs that still use sample data, so it's never
-// mistaken for real system data (Roles & Permissions, Access Control,
-// System Settings currently have no real backend behind them).
-const DemoBanner = ({ text }) => (
-  <div style={{
-    display: 'flex', alignItems: 'center', gap: '8px',
-    padding: '10px 14px', marginBottom: '18px',
-    backgroundColor: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '10px',
-  }}>
-    <span style={{ fontSize: '14px' }}>🧪</span>
-    <p style={{ margin: 0, fontSize: '12.5px', color: '#92400e', fontWeight: '600' }}>
-      {text || 'Sample data — not yet connected to a real backend system.'}
-    </p>
-  </div>
-);
+import { getAllUsers, createUser as createUserRequest, updateUserStatus, deleteUser as deleteUserRequest } from '../api/users';
+import { getSystemOverview, getRecentActivity, getSettings, saveSettings } from '../api/admin';
 
 // ── SVG Icons ─────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 16, color = 'currentColor', fill = 'none', strokeWidth = 2 }) => (
@@ -66,34 +50,15 @@ const QUICK_SETTINGS = [
   { icon: '💾', label: 'Backup & Restore',      sub: 'Manage system backup'            },
 ];
 
-const RECENT_REPORTS = [
-  { title: 'Patient Risk Report',       date: 'May 20, 2025 10:25 AM' },
-  { title: 'Dosage Analysis Report',    date: 'May 20, 2025 09:40 AM' },
-  { title: 'System Activity Report',    date: 'May 19, 2025 08:10 PM' },
-];
-
-// ── ROLES & PERMISSIONS DATA ────────────────────────────────────────────────
-const ROLES_DATA = [
-  { id: 1, name: 'Super Admin', users: 2, permissions: 'All Access', status: 'Active', created: '2025-01-15' },
-  { id: 2, name: 'Administrator', users: 5, permissions: 'Full Admin', status: 'Active', created: '2025-01-20' },
-  { id: 3, name: 'Doctor', users: 12, permissions: 'Patient & Reports', status: 'Active', created: '2025-02-01' },
-  { id: 4, name: 'Nurse', users: 8, permissions: 'Patient Care', status: 'Active', created: '2025-02-15' },
-  { id: 5, name: 'Trainee', users: 4, permissions: 'View Only', status: 'Inactive', created: '2025-03-01' },
-  { id: 6, name: 'Viewer', users: 3, permissions: 'Read Only', status: 'Active', created: '2025-03-10' },
-];
-
-// ── ACCESS CONTROL DATA ─────────────────────────────────────────────────────
 const ACCESS_RULES = [
-  { id: 1, resource: 'Patient Records', role: 'Admin', access: 'Full Control', status: 'Active' },
-  { id: 2, resource: 'Patient Records', role: 'Doctor', access: 'Read/Write', status: 'Active' },
-  { id: 3, resource: 'Patient Records', role: 'Nurse', access: 'Read Only', status: 'Active' },
-  { id: 4, resource: 'Risk Assessment', role: 'Admin', access: 'Full Control', status: 'Active' },
-  { id: 5, resource: 'Risk Assessment', role: 'Doctor', access: 'Read/Write', status: 'Active' },
-  { id: 6, resource: 'Risk Assessment', role: 'Trainee', access: 'Read Only', status: 'Inactive' },
-  { id: 7, resource: 'Dosage Calculation', role: 'Admin', access: 'Full Control', status: 'Active' },
-  { id: 8, resource: 'Dosage Calculation', role: 'Doctor', access: 'Read/Write', status: 'Active' },
-  { id: 9, resource: 'Reports', role: 'Admin', access: 'Full Control', status: 'Active' },
-  { id: 10, resource: 'Reports', role: 'Doctor', access: 'Read Only', status: 'Active' },
+  { id: 1, resource: 'User accounts', role: 'Super Admin', access: 'Full Control', status: 'Active' },
+  { id: 2, resource: 'User accounts', role: 'Administrator', access: 'Full Control', status: 'Active' },
+  { id: 3, resource: 'User accounts', role: 'Doctor, Nurse, Trainee, Viewer', access: 'No Access', status: 'Active' },
+  { id: 4, resource: 'Own assessments', role: 'Every signed-in role', access: 'Read/Write', status: 'Active' },
+  { id: 5, resource: 'System settings', role: 'Super Admin', access: 'Full Control', status: 'Active' },
+  { id: 6, resource: 'System settings', role: 'Administrator', access: 'Full Control', status: 'Active' },
+  { id: 7, resource: 'All activity', role: 'Super Admin', access: 'Read Only', status: 'Active' },
+  { id: 8, resource: 'All activity', role: 'Administrator', access: 'Read Only', status: 'Active' },
 ];
 
 const accessLevelColors = {
@@ -131,39 +96,35 @@ const initialSettings = {
   }
 };
 
-// ── REPORTS DATA ────────────────────────────────────────────────────────────
-const REPORTS_DATA = [
-  { id: 1, title: 'Patient Risk Analysis Report', type: 'Risk', date: '2025-05-20', status: 'Generated', size: '2.4 MB' },
-  { id: 2, title: 'Dosage Calculation Summary', type: 'Dosage', date: '2025-05-19', status: 'Generated', size: '1.8 MB' },
-  { id: 3, title: 'System Activity Log', type: 'Activity', date: '2025-05-18', status: 'Processing', size: '--' },
-  { id: 4, title: 'User Performance Report', type: 'User', date: '2025-05-17', status: 'Generated', size: '3.1 MB' },
-  { id: 5, title: 'Monthly Assessment Summary', type: 'Summary', date: '2025-05-15', status: 'Generated', size: '4.2 MB' },
-  { id: 6, title: 'Security Audit Report', type: 'Security', date: '2025-05-14', status: 'Failed', size: '--' },
-];
-
-// ── ACTIVITY LOGS DATA ──────────────────────────────────────────────────────
-const LOGS_DATA = [
-  { id: 1, user: 'Dr. Ali Khan', action: 'Logged in', resource: 'System', timestamp: '2025-05-20 10:30:25', status: 'Success', ip: '192.168.1.100' },
-  { id: 2, user: 'Dr. Sara Ahmed', action: 'Updated patient record', resource: 'Patient #1024', timestamp: '2025-05-20 09:45:12', status: 'Success', ip: '192.168.1.101' },
-  { id: 3, user: 'Nurse Fatima', action: 'Generated risk report', resource: 'Report #R-2025-05', timestamp: '2025-05-20 09:20:45', status: 'Success', ip: '192.168.1.102' },
-  { id: 4, user: 'Bilal Hussain', action: 'Failed login attempt', resource: 'System', timestamp: '2025-05-20 08:15:30', status: 'Failed', ip: '192.168.1.103' },
-  { id: 5, user: 'Zainab Malik', action: 'Logged out', resource: 'System', timestamp: '2025-05-20 07:55:10', status: 'Success', ip: '192.168.1.104' },
-  { id: 6, user: 'Dr. Ali Khan', action: 'Modified system settings', resource: 'Security Settings', timestamp: '2025-05-19 23:20:45', status: 'Success', ip: '192.168.1.100' },
-  { id: 7, user: 'Admin User', action: 'User role updated', resource: 'User #5 - Viewer', timestamp: '2025-05-19 22:15:20', status: 'Success', ip: '192.168.1.1' },
-];
-
 // ── Charts ──────────────────────────────────────────────────────────────────
-const DonutChart = () => {
-  const paths = [
-    { pct: 0.25, color: '#2563eb' },
-    { pct: 0.375, color: '#16a34a' },
-    { pct: 0.25, color: '#93c5fd' },
-    { pct: 0.125, color: '#f59e0b' },
-  ];
+const DonutChart = ({ users = [] }) => {
+  const slices = [
+    { label: 'Super Admin', color: '#7c3aed' },
+    { label: 'Administrator', color: '#2563eb' },
+    { label: 'Doctor', color: '#16a34a' },
+    { label: 'Nurse', color: '#93c5fd' },
+    { label: 'Trainee', color: '#f59e0b' },
+    { label: 'Viewer', color: '#64748b' },
+  ].map((role) => ({
+    ...role,
+    pct: users.length ? users.filter((user) => user.role === role.label).length / users.length : 0,
+  })).filter((slice) => slice.pct > 0);
+
   const cx = 60, cy = 60, r = 44, innerR = 28;
+  if (!slices.length) {
+    return (
+      <svg width="120" height="120" viewBox="0 0 120 120">
+        <circle cx={cx} cy={cy} r={(r + innerR) / 2} fill="none" stroke="#e5e7eb" strokeWidth={r - innerR} />
+      </svg>
+    );
+  }
+
   let cum = -Math.PI / 2;
-  const pathData = paths.map(s => {
+  const pathData = slices.map(s => {
     const a1 = cum, a2 = cum + s.pct * 2 * Math.PI; cum = a2;
+    if (s.pct >= 0.999) {
+      return { ...s, d: `M${cx},${cy - r} A${r},${r} 0 1,1 ${cx - 0.01},${cy - r} L${cx - 0.01},${cy - innerR} A${innerR},${innerR} 0 1,0 ${cx},${cy - innerR} Z` };
+    }
     const x1o = cx + r * Math.cos(a1), y1o = cy + r * Math.sin(a1);
     const x2o = cx + r * Math.cos(a2), y2o = cy + r * Math.sin(a2);
     const x1i = cx + innerR * Math.cos(a2), y1i = cy + innerR * Math.sin(a2);
@@ -178,14 +139,20 @@ const DonutChart = () => {
   );
 };
 
-const LineChart = () => {
-  const data = [300, 500, 450, 600, 550, 800, 750];
-  const labels = ['May 14','May 15','May 16','May 17','May 18','May 19','May 20'];
-  const yTicks = [0, 200, 400, 600, 800, 1000];
+const LineChart = ({ activity = [] }) => {
+  const counts = new Map();
+  [...activity].reverse().forEach((item) => {
+    if (!item.createdAt) return;
+    const label = new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    counts.set(label, (counts.get(label) || 0) + 1);
+  });
+  const labels = counts.size ? [...counts.keys()] : ['—'];
+  const data = counts.size ? [...counts.values()] : [0];
   const W = 340, H = 170, pl = 36, pr = 10, pt = 10, pb = 28;
   const cW = W - pl - pr, cH = H - pt - pb;
-  const maxV = 1000;
-  const tx = i => pl + (i / (data.length - 1)) * cW;
+  const maxV = Math.max(1, ...data);
+  const yTicks = [...new Set([0, Math.ceil(maxV / 2), maxV])];
+  const tx = i => data.length === 1 ? pl + cW / 2 : pl + (i / (data.length - 1)) * cW;
   const ty = v => pt + cH - (v / maxV) * cH;
   const pathD = data.map((v, i) => `${i === 0 ? 'M' : 'L'}${tx(i)},${ty(v)}`).join(' ');
   const areaD = pathD + ` L${tx(data.length - 1)},${pt + cH} L${tx(0)},${pt + cH} Z`;
@@ -234,23 +201,15 @@ const LEFT_NAV = [
 // ── VIEW COMPONENTS ─────────────────────────────────────────────────────────
 
 // ── ENHANCED USERS VIEW ─────────────────────────────────────────────────────
-const EnhancedUsersView = () => {
-  const [users, setUsers] = useState([
-    { id: 1, name: 'Dr. Ali Khan', email: 'ali.khan@anesguard.com', role: 'Administrator', department: 'Cardiology', status: 'Active', lastLogin: '2025-05-20 10:30 AM' },
-    { id: 2, name: 'Dr. Sara Ahmed', email: 'sara.ahmed@anesguard.com', role: 'Doctor', department: 'Neurology', status: 'Active', lastLogin: '2025-05-20 09:15 AM' },
-    { id: 3, name: 'Nurse Fatima', email: 'fatima.noor@anesguard.com', role: 'Nurse', department: 'Pediatrics', status: 'Active', lastLogin: '2025-05-19 08:45 PM' },
-    { id: 4, name: 'Bilal Hussain', email: 'bilal.hussain@anesguard.com', role: 'Trainee', department: 'Surgery', status: 'Inactive', lastLogin: '2025-05-18 04:20 PM' },
-    { id: 5, name: 'Zainab Malik', email: 'zainab.malik@anesguard.com', role: 'Viewer', department: 'Radiology', status: 'Active', lastLogin: '2025-05-20 11:05 AM' },
-  ]);
-
+const EnhancedUsersView = ({ users = [], onDelete, onToggle, onAdd }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [toast, setToast] = useState('');
-  const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Doctor', department: '' });
+  const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Doctor', department: 'Cardiology' });
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 4000); };
 
   const filteredUsers = users.filter(u => {
     const matchSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -270,30 +229,23 @@ const EnhancedUsersView = () => {
     return colors[role] || '#f8fafc';
   };
 
-  const deleteUser = (id) => {
-    setUsers(users.filter(u => u.id !== id));
-    showToast('User deleted successfully');
+  const deleteUser = async (id) => {
+    await onDelete(id);
   };
 
-  const toggleUserStatus = (id) => {
-    setUsers(users.map(u => u.id === id ? { ...u, status: u.status === 'Active' ? 'Inactive' : 'Active' } : u));
-    showToast('User status updated');
+  const toggleUserStatus = async (id) => {
+    const current = users.find((user) => user.id === id);
+    await onToggle(id, current?.status === 'Active' ? 'Inactive' : 'Active');
   };
 
-  const addUser = () => {
+  const addUser = async () => {
     if (!newUser.name || !newUser.email) {
       showToast('Name and email are required');
       return;
     }
-    setUsers([...users, { 
-      id: Date.now(), 
-      ...newUser, 
-      status: 'Active', 
-      lastLogin: 'Just now' 
-    }]);
-    setNewUser({ name: '', email: '', role: 'Doctor', department: '' });
+    await onAdd(newUser);
+    setNewUser({ name: '', email: '', role: 'Doctor', department: 'Cardiology' });
     setShowAddModal(false);
-    showToast('User added successfully');
   };
 
   const inputSt = {
@@ -337,7 +289,7 @@ const EnhancedUsersView = () => {
                   <option value="Pediatrics">Pediatrics</option>
                   <option value="Surgery">Surgery</option>
                   <option value="Radiology">Radiology</option>
-                  <option value="Emergency">Emergency Medicine</option>
+                  <option value="Emergency Medicine">Emergency Medicine</option>
                 </select>
               </div>
             </div>
@@ -366,7 +318,7 @@ const EnhancedUsersView = () => {
           { label: 'Total Users', value: users.length, icon: '👥', color: '#2563eb' },
           { label: 'Active Users', value: users.filter(u => u.status === 'Active').length, icon: '✅', color: '#16a34a' },
           { label: 'Inactive Users', value: users.filter(u => u.status === 'Inactive').length, icon: '⏸️', color: '#d97706' },
-          { label: 'Total Roles', value: '5', icon: '🛡️', color: '#7c3aed' },
+          { label: 'Total Roles', value: '6', icon: '🛡️', color: '#7c3aed' },
         ].map(stat => (
           <div key={stat.label} style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '14px 18px', border: '1px solid #e5e7eb' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -454,7 +406,7 @@ const DashboardContent = ({
   newUser, setNewUser, addUser, filteredUsers,
   searchQuery, setSearchQuery, roleFilter, setRoleFilter,
   statusFilter, setStatusFilter, deleteUser, toggleUser,
-  toast, inputSt, statCards, recentActivity, loadingOverview, loadingActivity
+  toast, inputSt, statCards, recentActivity, loadingOverview, loadingActivity, onViewActivity
 }) => (
   <>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: '14px', marginBottom: '22px' }}>
@@ -577,7 +529,7 @@ const DashboardContent = ({
         <div style={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <div style={{ padding: '14px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <p style={{ margin: 0, fontSize: '13.5px', fontWeight: '700', color: '#1e293b' }}>System Activity <span style={{ color: '#16a34a', fontSize: '11px', fontWeight: '600' }}>(Live)</span></p>
-            <button style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>View All</button>
+            <button onClick={onViewActivity} style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>View All</button>
           </div>
           <div style={{ padding: '6px 0' }}>
             {loadingActivity ? (
@@ -585,8 +537,8 @@ const DashboardContent = ({
             ) : recentActivity.length === 0 ? (
               <p style={{ padding: '12px 16px', fontSize: '12px', color: '#94a3b8' }}>No activity yet.</p>
             ) : (
-              recentActivity.map((a, i) => (
-                <div key={a._id || i} style={{ padding: '9px 16px', borderBottom: i < recentActivity.length - 1 ? '1px solid #f8fafc' : 'none', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+              recentActivity.slice(0, 6).map((a, i) => (
+                <div key={a._id || i} style={{ padding: '9px 16px', borderBottom: i < Math.min(recentActivity.length, 6) - 1 ? '1px solid #f8fafc' : 'none', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
                   <span style={{ fontSize: '14px', marginTop: '1px', flexShrink: 0 }}>
                     {a.riskLevel === 'High' ? '🔴' : a.riskLevel === 'Moderate' ? '🟡' : '🟢'}
                   </span>
@@ -629,20 +581,26 @@ const DashboardContent = ({
       <div style={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <p style={{ margin: '0 0 14px', fontSize: '13.5px', fontWeight: '700', color: '#1e293b' }}>User Role Overview</p>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <DonutChart />
+          <DonutChart users={users} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
             {[
-              { label: 'Administrator', count: 2, pct: '25%', color: '#2563eb' },
-              { label: 'Doctor', count: 3, pct: '37.5%', color: '#16a34a' },
-              { label: 'Nurse', count: 2, pct: '25%', color: '#93c5fd' },
-              { label: 'Trainee', count: 1, pct: '12.5%', color: '#f59e0b' },
-            ].map(r => (
+              { label: 'Super Admin', color: '#7c3aed' },
+              { label: 'Administrator', color: '#2563eb' },
+              { label: 'Doctor', color: '#16a34a' },
+              { label: 'Nurse', color: '#93c5fd' },
+              { label: 'Trainee', color: '#f59e0b' },
+              { label: 'Viewer', color: '#64748b' },
+            ].map(r => {
+              const count = users.filter((user) => user.role === r.label).length;
+              const pct = users.length ? `${Math.round((count / users.length) * 100)}%` : '0%';
+              return (
               <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                 <span style={{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: r.color, flexShrink: 0 }} />
                 <span style={{ fontSize: '11.5px', color: '#374151' }}>{r.label}</span>
-                <span style={{ fontSize: '11.5px', color: '#94a3b8', marginLeft: 'auto' }}>{r.count} ({r.pct})</span>
+                <span style={{ fontSize: '11.5px', color: '#94a3b8', marginLeft: 'auto' }}>{count} ({pct})</span>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -656,21 +614,21 @@ const DashboardContent = ({
             <option>This Month</option>
           </select>
         </div>
-        <LineChart />
+        <LineChart activity={recentActivity} />
       </div>
 
       <div style={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <p style={{ margin: '0 0 14px', fontSize: '13.5px', fontWeight: '700', color: '#1e293b' }}>Recent Reports</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {RECENT_REPORTS.map((r, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: i < RECENT_REPORTS.length - 1 ? '14px' : 0, borderBottom: i < RECENT_REPORTS.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+          {(recentActivity.length ? recentActivity.slice(0, 4) : []).map((item, i, list) => (
+            <div key={item._id || i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: i < list.length - 1 ? '14px' : 0, borderBottom: i < list.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
               <div>
-                <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{r.title}</p>
-                <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>{r.date}</p>
+                <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{item.patientName} ({item.riskLevel})</p>
+                <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>{item.createdAt ? new Date(item.createdAt).toLocaleString() : '—'}</p>
               </div>
-              <button style={{ padding: '4px 10px', borderRadius: '6px', border: 'none', backgroundColor: '#ef4444', color: '#fff', fontSize: '11px', fontWeight: '700', cursor: 'pointer', letterSpacing: '0.3px' }}>PDF</button>
             </div>
           ))}
+          {recentActivity.length === 0 && <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>No assessments yet.</p>}
         </div>
       </div>
     </div>
@@ -678,25 +636,36 @@ const DashboardContent = ({
 );
 
 // Roles & Permissions View
-const RolesPermissionsView = () => {
-  const [roles] = useState(ROLES_DATA);
+const BUILTIN_ROLES = [
+  { id: 'Super Admin', name: 'Super Admin', permissions: 'Users, settings, all activity', status: 'Active' },
+  { id: 'Administrator', name: 'Administrator', permissions: 'Users, settings, all activity', status: 'Active' },
+  { id: 'Doctor', name: 'Doctor', permissions: 'Own assessments', status: 'Active' },
+  { id: 'Nurse', name: 'Nurse', permissions: 'Own assessments', status: 'Active' },
+  { id: 'Trainee', name: 'Trainee', permissions: 'Own assessments', status: 'Active' },
+  { id: 'Viewer', name: 'Viewer', permissions: 'Own assessments', status: 'Active' },
+];
+
+const RolesPermissionsView = ({ users = [] }) => {
+  const roles = BUILTIN_ROLES.map((role) => ({
+    ...role,
+    users: users.filter((user) => user.role === role.name).length,
+    created: 'Built-in',
+  }));
   return (
     <div>
-      <DemoBanner text="Sample data — a real roles/permissions system isn't built yet." />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>Roles & Permissions</h2>
-          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Manage user roles and their permissions</p>
+          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Built-in roles. Counts come from the user list.</p>
         </div>
-        <button style={{ padding: '9px 20px', borderRadius: '9px', border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 3px 10px rgba(37,99,235,0.3)' }}>+ Create New Role</button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '14px', marginBottom: '20px' }}>
         {[
-          { label: 'Total Roles', value: '6', icon: '👥', color: '#2563eb' },
-          { label: 'Active Roles', value: '5', icon: '✅', color: '#16a34a' },
-          { label: 'Total Permissions', value: '24', icon: '🔑', color: '#7c3aed' },
-          { label: 'Assigned Users', value: '34', icon: '👤', color: '#d97706' },
+          { label: 'Total Roles', value: roles.length, icon: '👥', color: '#2563eb' },
+          { label: 'Active Roles', value: roles.filter((role) => role.status === 'Active').length, icon: '✅', color: '#16a34a' },
+          { label: 'Admin Roles', value: 2, icon: '🔑', color: '#7c3aed' },
+          { label: 'Assigned Users', value: users.length, icon: '👤', color: '#d97706' },
         ].map(stat => (
           <div key={stat.label} style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '14px 18px', border: '1px solid #e5e7eb' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -717,7 +686,7 @@ const RolesPermissionsView = () => {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: '#f8fafc' }}>
-              {['Role Name', 'Users', 'Permissions', 'Status', 'Created Date', 'Actions'].map(h => (
+              {['Role Name', 'Users', 'Permissions', 'Status', 'Created Date', 'Type'].map(h => (
                 <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
               ))}
             </tr>
@@ -734,12 +703,7 @@ const RolesPermissionsView = () => {
                   <span style={{ padding: '3px 12px', borderRadius: '20px', backgroundColor: role.status === 'Active' ? '#f0fdf4' : '#fef2f2', color: role.status === 'Active' ? '#16a34a' : '#dc2626', fontSize: '11px', fontWeight: '600' }}>{role.status}</span>
                 </td>
                 <td style={{ padding: '10px 16px', fontSize: '12px', color: '#64748b' }}>{role.created}</td>
-                <td style={{ padding: '10px 16px' }}>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: '#fff', fontSize: '11px', cursor: 'pointer' }}>✏️ Edit</button>
-                    <button style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #ef4444', backgroundColor: '#fef2f2', color: '#dc2626', fontSize: '11px', cursor: 'pointer' }}>🗑️</button>
-                  </div>
-                </td>
+                <td style={{ padding: '10px 16px', fontSize: '12px', color: '#64748b' }}>Fixed</td>
               </tr>
             ))}
           </tbody>
@@ -754,21 +718,19 @@ const AccessControlView = () => {
   const [rules] = useState(ACCESS_RULES);
   return (
     <div>
-      <DemoBanner text="Sample data — these rules aren't actually enforced anywhere yet." />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>Access Control</h2>
-          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Manage resource access and security policies</p>
+          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>These rules are enforced by the API. They are not editable here.</p>
         </div>
-        <button style={{ padding: '9px 20px', borderRadius: '9px', border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 3px 10px rgba(37,99,235,0.3)' }}>+ Add Access Rule</button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '14px', marginBottom: '20px' }}>
         {[
-          { label: 'Total Rules', value: '10', icon: '📋', color: '#2563eb' },
-          { label: 'Active Rules', value: '8', icon: '✅', color: '#16a34a' },
-          { label: 'Resources Protected', value: '4', icon: '🛡️', color: '#7c3aed' },
-          { label: 'Access Violations', value: '2', icon: '⚠️', color: '#dc2626' },
+          { label: 'Total Rules', value: String(rules.length), icon: '📋', color: '#2563eb' },
+          { label: 'Active Rules', value: String(rules.filter((rule) => rule.status === 'Active').length), icon: '✅', color: '#16a34a' },
+          { label: 'Resources Protected', value: String(new Set(rules.map((rule) => rule.resource)).size), icon: '🛡️', color: '#7c3aed' },
+          { label: 'Access Violations', value: '0', icon: '⚠️', color: '#dc2626' },
         ].map(stat => (
           <div key={stat.label} style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '14px 18px', border: '1px solid #e5e7eb' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -836,6 +798,50 @@ const AccessControlView = () => {
 const SystemSettingsView = () => {
   const [settings, setSettings] = useState(initialSettings);
   const [activeTab, setActiveTab] = useState('general');
+  const [statusNote, setStatusNote] = useState('Loading saved settings...');
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await getSettings();
+        setSettings((current) => ({
+          ...current,
+          general: { ...current.general, ...data.settings.general },
+          security: { ...current.security, ...data.settings.security },
+          notifications: { ...current.notifications, ...data.settings.notifications },
+        }));
+        setStatusNote(data.settings.updatedAt
+          ? `Last saved ${new Date(data.settings.updatedAt).toLocaleString()}`
+          : 'No custom settings saved yet.');
+      } catch (error) {
+        setStatusNote('Could not load settings. You can still edit and save them.');
+      }
+    };
+    load();
+  }, []);
+
+  const updateSection = (section, key, value) => {
+    setSettings((current) => ({ ...current, [section]: { ...current[section], [key]: value } }));
+  };
+
+  const handleSaveSettings = async () => {
+    setSavingSettings(true);
+    try {
+      const data = await saveSettings({
+        general: settings.general,
+        security: settings.security,
+        notifications: settings.notifications,
+      });
+      setStatusNote(data.settings?.updatedAt
+        ? `Last saved ${new Date(data.settings.updatedAt).toLocaleString()}`
+        : 'Settings saved.');
+    } catch (error) {
+      setStatusNote(error.response?.data?.message || 'Could not save settings.');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
 
   const tabs = [
     { id: 'general', label: '⚙️ General' },
@@ -846,15 +852,14 @@ const SystemSettingsView = () => {
 
   return (
     <div>
-      <DemoBanner text="Sample data — these settings aren't saved anywhere yet." />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>System Settings</h2>
-          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Configure system-wide settings and preferences</p>
+          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>These values are stored for this installation.</p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button style={{ padding: '8px 18px', borderRadius: '8px', border: '1.5px solid #d1d5db', backgroundColor: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>🔄 Reset Defaults</button>
-          <button style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 3px 10px rgba(37,99,235,0.3)' }}>💾 Save Settings</button>
+          <button onClick={() => setSettings(initialSettings)} style={{ padding: '8px 18px', borderRadius: '8px', border: '1.5px solid #d1d5db', backgroundColor: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>Reset form</button>
+          <button onClick={handleSaveSettings} disabled={savingSettings} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 3px 10px rgba(37,99,235,0.3)' }}>{savingSettings ? 'Saving...' : 'Save Settings'}</button>
         </div>
       </div>
 
@@ -873,21 +878,15 @@ const SystemSettingsView = () => {
             <h3 style={{ margin: '0 0 20px', fontSize: '15px', fontWeight: '600', color: '#1e293b' }}>General Settings</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
               {[
-                { label: 'System Name', value: settings.general.systemName, type: 'text' },
-                { label: 'System Version', value: settings.general.systemVersion, type: 'text' },
-                { label: 'Time Zone', value: settings.general.timezone, type: 'select' },
-                { label: 'Date Format', value: settings.general.dateFormat, type: 'select' },
-                { label: 'Language', value: settings.general.language, type: 'select' },
+                { label: 'System Name', key: 'systemName' },
+                { label: 'System Version', key: 'systemVersion' },
+                { label: 'Time Zone', key: 'timezone' },
+                { label: 'Date Format', key: 'dateFormat' },
+                { label: 'Language', key: 'language' },
               ].map(field => (
-                <div key={field.label}>
+                <div key={field.key}>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>{field.label}</label>
-                  {field.type === 'select' ? (
-                    <select style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #d1d5db', fontSize: '13px', backgroundColor: '#fff' }}>
-                      <option>{field.value}</option>
-                    </select>
-                  ) : (
-                    <input type="text" value={field.value} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #d1d5db', fontSize: '13px', outline: 'none' }} />
-                  )}
+                  <input type="text" value={settings.general[field.key] || ''} onChange={(e) => updateSection('general', field.key, e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #d1d5db', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
                 </div>
               ))}
             </div>
@@ -898,33 +897,17 @@ const SystemSettingsView = () => {
           <div>
             <h3 style={{ margin: '0 0 20px', fontSize: '15px', fontWeight: '600', color: '#1e293b' }}>Security Settings</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {[
-                { label: 'Session Timeout (minutes)', value: settings.security.sessionTimeout, type: 'number' },
-                { label: 'Password Policy', value: settings.security.passwordPolicy, type: 'select' },
-              ].map(field => (
-                <div key={field.label}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>{field.label}</label>
-                  {field.type === 'select' ? (
-                    <select style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #d1d5db', fontSize: '13px' }}>
-                      <option>{field.value}</option>
-                      <option>Weak</option>
-                      <option>Medium</option>
-                      <option>Strong</option>
-                    </select>
-                  ) : (
-                    <input type="number" value={field.value} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #d1d5db', fontSize: '13px', outline: 'none' }} />
-                  )}
-                </div>
-              ))}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={settings.security.twoFactorAuth} style={{ width: '18px', height: '18px' }} />
-                  <span style={{ fontSize: '13px', color: '#374151' }}>Enable Two-Factor Authentication</span>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={settings.security.ipWhitelist} style={{ width: '18px', height: '18px' }} />
-                  <span style={{ fontSize: '13px', color: '#374151' }}>Enable IP Whitelist</span>
-                </label>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Session note (minutes)</label>
+                <input type="number" value={settings.security.sessionTimeout || ''} onChange={(e) => updateSection('security', 'sessionTimeout', e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #d1d5db', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Password policy label</label>
+                <select value={settings.security.passwordPolicy || 'Strong'} onChange={(e) => updateSection('security', 'passwordPolicy', e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #d1d5db', fontSize: '13px' }}>
+                  <option>Strong</option>
+                  <option>Medium</option>
+                </select>
+                <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#64748b' }}>Accounts already require a password of at least 8 characters.</p>
               </div>
             </div>
           </div>
@@ -935,13 +918,13 @@ const SystemSettingsView = () => {
             <h3 style={{ margin: '0 0 20px', fontSize: '15px', fontWeight: '600', color: '#1e293b' }}>Notification Settings</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {[
-                { label: 'Email Alerts', value: settings.notifications.emailAlerts },
-                { label: 'System Updates', value: settings.notifications.systemUpdates },
-                { label: 'User Activity', value: settings.notifications.userActivity },
-                { label: 'Report Generation', value: settings.notifications.reportGeneration },
+                { label: 'Email Alerts', key: 'emailAlerts' },
+                { label: 'System Updates', key: 'systemUpdates' },
+                { label: 'User Activity', key: 'userActivity' },
+                { label: 'Report Generation', key: 'reportGeneration' },
               ].map(notification => (
-                <label key={notification.label} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', backgroundColor: '#f8fafc', borderRadius: '8px', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={notification.value} style={{ width: '18px', height: '18px' }} />
+                <label key={notification.key} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', backgroundColor: '#f8fafc', borderRadius: '8px', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={!!settings.notifications[notification.key]} onChange={(e) => updateSection('notifications', notification.key, e.target.checked)} style={{ width: '18px', height: '18px' }} />
                   <span style={{ fontSize: '13px', color: '#374151' }}>{notification.label}</span>
                 </label>
               ))}
@@ -954,9 +937,9 @@ const SystemSettingsView = () => {
             <h3 style={{ margin: '0 0 20px', fontSize: '15px', fontWeight: '600', color: '#1e293b' }}>Integrations</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {[
-                { label: 'Firebase', status: settings.integrations.firebase, color: '#16a34a' },
-                { label: 'Email Service', status: settings.integrations.emailService, color: '#d97706' },
-                { label: 'Backup Service', status: settings.integrations.backupService, color: '#16a34a' },
+                { label: 'Sign-in', status: 'Email and password', color: '#16a34a' },
+                { label: 'Database', status: 'MongoDB', color: '#16a34a' },
+                { label: 'Email delivery', status: 'Not configured', color: '#d97706' },
               ].map(integration => (
                 <div key={integration.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
                   <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{integration.label}</span>
@@ -969,36 +952,37 @@ const SystemSettingsView = () => {
       </div>
 
       <div style={{ marginTop: '16px', padding: '12px 16px', backgroundColor: '#eff6ff', borderRadius: '10px', border: '1px solid #bfdbfe' }}>
-        <p style={{ margin: 0, fontSize: '12px', color: '#1d4ed8' }}>ℹ️ System settings are saved automatically. Last updated: Today, 10:30 AM</p>
+        <p style={{ margin: 0, fontSize: '12px', color: '#1d4ed8' }}>{statusNote}</p>
       </div>
     </div>
   );
 };
 
 // Reports & Data View
-const ReportsDataView = () => {
+const ReportsDataView = ({ activity = [], onNavigate }) => {
   const [reportType, setReportType] = useState('all');
-  const [dateRange, setDateRange] = useState('this-month');
-  const [reports] = useState(REPORTS_DATA);
+  const reports = activity.map((item) => ({
+    id: item._id,
+    title: `${item.patientName || 'Patient'} assessment`,
+    type: item.riskLevel || 'Risk',
+    date: item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '—',
+    status: item.status === 'Completed' ? 'Generated' : 'Processing',
+  })).filter((report) => reportType === 'all' || report.type === reportType || (reportType === 'risk' && ['Low', 'Moderate', 'High'].includes(report.type)));
 
+  const today = new Date().toLocaleDateString();
   const reportStats = [
-    { label: 'Total Reports', value: '156', icon: '📄', color: '#2563eb' },
-    { label: 'Generated Today', value: '12', icon: '✅', color: '#16a34a' },
-    { label: 'In Progress', value: '3', icon: '⏳', color: '#d97706' },
-    { label: 'Failed', value: '2', icon: '❌', color: '#dc2626' },
+    { label: 'Total Reports', value: activity.length, icon: '📄', color: '#2563eb' },
+    { label: 'Completed', value: activity.filter((item) => item.status === 'Completed').length, icon: '✅', color: '#16a34a' },
+    { label: 'Pending', value: activity.filter((item) => item.status !== 'Completed').length, icon: '⏳', color: '#d97706' },
+    { label: 'Created today', value: activity.filter((item) => item.createdAt && new Date(item.createdAt).toLocaleDateString() === today).length, icon: '📅', color: '#7c3aed' },
   ];
 
   return (
     <div>
-      <DemoBanner text="Sample data — real report generation isn't built yet (your actual assessments are visible in Assessment History)." />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>Reports & Data</h2>
-          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Generate, manage, and export system reports</p>
-        </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button style={{ padding: '8px 18px', borderRadius: '8px', border: '1.5px solid #d1d5db', backgroundColor: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>📊 Export All</button>
-          <button style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 3px 10px rgba(37,99,235,0.3)', display: 'flex', alignItems: 'center', gap: '6px' }}>+ Generate Report</button>
+          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Saved assessments across the system</p>
         </div>
       </div>
 
@@ -1018,33 +1002,26 @@ const ReportsDataView = () => {
 
       <div style={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '16px 20px', marginBottom: '20px', display: 'flex', gap: '12px', alignItems: 'center' }}>
         <select value={reportType} onChange={e => setReportType(e.target.value)} style={{ padding: '8px 14px', border: '1.5px solid #d1d5db', borderRadius: '8px', fontSize: '13px' }}>
-          <option value="all">All Reports</option>
-          <option value="risk">Risk Reports</option>
-          <option value="dosage">Dosage Reports</option>
-          <option value="activity">Activity Reports</option>
-          <option value="user">User Reports</option>
+          <option value="all">All risk levels</option>
+          <option value="Low">Low</option>
+          <option value="Moderate">Moderate</option>
+          <option value="High">High</option>
         </select>
-        <select value={dateRange} onChange={e => setDateRange(e.target.value)} style={{ padding: '8px 14px', border: '1.5px solid #d1d5db', borderRadius: '8px', fontSize: '13px' }}>
-          <option value="today">Today</option>
-          <option value="this-week">This Week</option>
-          <option value="this-month">This Month</option>
-          <option value="this-year">This Year</option>
-        </select>
-        <div style={{ flex: 1 }} />
-        <button style={{ padding: '8px 16px', borderRadius: '8px', border: '1.5px solid #d1d5db', backgroundColor: '#fff', fontSize: '13px', cursor: 'pointer' }}>📅 Custom Range</button>
       </div>
 
       <div style={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: '#f8fafc' }}>
-              {['Report Title', 'Type', 'Date Generated', 'Status', 'Size', 'Actions'].map(h => (
+              {['Patient', 'Risk', 'Date', 'Status', 'Open'].map(h => (
                 <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {reports.map(report => (
+            {reports.length === 0 ? (
+              <tr><td colSpan="5" style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>No assessments yet.</td></tr>
+            ) : reports.map(report => (
               <tr key={report.id} style={{ borderBottom: '1px solid #f8fafc' }}>
                 <td style={{ padding: '10px 16px', fontWeight: '600', color: '#1e293b' }}>{report.title}</td>
                 <td style={{ padding: '10px 16px' }}>
@@ -1052,15 +1029,10 @@ const ReportsDataView = () => {
                 </td>
                 <td style={{ padding: '10px 16px', fontSize: '12px', color: '#64748b' }}>{report.date}</td>
                 <td style={{ padding: '10px 16px' }}>
-                  <span style={{ padding: '3px 12px', borderRadius: '20px', backgroundColor: report.status === 'Generated' ? '#f0fdf4' : report.status === 'Processing' ? '#fffbeb' : '#fef2f2', color: report.status === 'Generated' ? '#16a34a' : report.status === 'Processing' ? '#d97706' : '#dc2626', fontSize: '11px', fontWeight: '600' }}>{report.status}</span>
+                  <span style={{ padding: '3px 12px', borderRadius: '20px', backgroundColor: report.status === 'Generated' ? '#f0fdf4' : '#fffbeb', color: report.status === 'Generated' ? '#16a34a' : '#d97706', fontSize: '11px', fontWeight: '600' }}>{report.status}</span>
                 </td>
-                <td style={{ padding: '10px 16px', fontSize: '12px', color: '#64748b' }}>{report.size}</td>
                 <td style={{ padding: '10px 16px' }}>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: '#fff', fontSize: '11px', cursor: 'pointer' }}>👁️ View</button>
-                    <button style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: '#fff', fontSize: '11px', cursor: 'pointer' }}>📥</button>
-                    <button style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #ef4444', backgroundColor: '#fef2f2', color: '#dc2626', fontSize: '11px', cursor: 'pointer' }}>🗑️</button>
-                  </div>
+                  <button onClick={() => onNavigate && onNavigate('patientDetails', { id: report.id })} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: '#fff', fontSize: '11px', cursor: 'pointer' }}>View</button>
                 </td>
               </tr>
             ))}
@@ -1072,29 +1044,29 @@ const ReportsDataView = () => {
 };
 
 // Activity Logs View
-const ActivityLogsView = () => {
-  const [logFilter, setLogFilter] = useState('all');
-  const [timeFilter, setTimeFilter] = useState('today');
-  const [logs] = useState(LOGS_DATA);
+const ActivityLogsView = ({ activity = [] }) => {
+  const logs = activity.map((item) => ({
+    id: item._id,
+    user: item.createdBy?.fullName || 'User',
+    action: item.status === 'Completed' ? 'Completed assessment' : 'Created assessment',
+    resource: item.patientName || 'Assessment',
+    timestamp: new Date(item.updatedAt || item.createdAt).toLocaleString(),
+    status: 'Success',
+  }));
 
   const logStats = [
-    { label: 'Total Activities', value: '1,248', icon: '📊', color: '#2563eb' },
-    { label: 'Success', value: '1,182', icon: '✅', color: '#16a34a' },
-    { label: 'Failed', value: '66', icon: '❌', color: '#dc2626' },
-    { label: 'Active Users', value: '34', icon: '👤', color: '#7c3aed' },
+    { label: 'Recent events', value: logs.length, icon: '📊', color: '#2563eb' },
+    { label: 'Completed', value: activity.filter((item) => item.status === 'Completed').length, icon: '✅', color: '#16a34a' },
+    { label: 'Pending', value: activity.filter((item) => item.status !== 'Completed').length, icon: '⏳', color: '#d97706' },
+    { label: 'People', value: new Set(logs.map((log) => log.user)).size, icon: '👤', color: '#7c3aed' },
   ];
 
   return (
     <div>
-      <DemoBanner text="Sample data — this table isn't connected to real logs (IP addresses aren't tracked at all, and 'user' here isn't a real account)." />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>Activity Logs</h2>
-          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Monitor system activity and user actions</p>
-        </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button style={{ padding: '8px 18px', borderRadius: '8px', border: '1.5px solid #d1d5db', backgroundColor: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>🔄 Refresh</button>
-          <button style={{ padding: '8px 20px', borderRadius: '8px', border: '1.5px solid #d1d5db', backgroundColor: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>📥 Export Logs</button>
+          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Recent assessments saved in the system</p>
         </div>
       </div>
 
@@ -1112,39 +1084,19 @@ const ActivityLogsView = () => {
         ))}
       </div>
 
-      <div style={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '14px 18px', marginBottom: '20px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <select value={logFilter} onChange={e => setLogFilter(e.target.value)} style={{ padding: '7px 12px', border: '1.5px solid #d1d5db', borderRadius: '8px', fontSize: '13px' }}>
-          <option value="all">All Actions</option>
-          <option value="login">Logins</option>
-          <option value="update">Updates</option>
-          <option value="create">Creations</option>
-          <option value="delete">Deletions</option>
-        </select>
-        <select value={timeFilter} onChange={e => setTimeFilter(e.target.value)} style={{ padding: '7px 12px', border: '1.5px solid #d1d5db', borderRadius: '8px', fontSize: '13px' }}>
-          <option value="today">Today</option>
-          <option value="yesterday">Yesterday</option>
-          <option value="last-7">Last 7 Days</option>
-          <option value="last-30">Last 30 Days</option>
-        </select>
-        <div style={{ flex: 1 }} />
-        <input placeholder="Search logs..." style={{ padding: '7px 12px', border: '1.5px solid #d1d5db', borderRadius: '8px', fontSize: '13px', width: '200px', outline: 'none' }} />
-      </div>
-
       <div style={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-        <div style={{ padding: '10px 16px', borderBottom: '1px solid #f1f5f9', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>📋 Sample activity feed</span>
-          <span style={{ fontSize: '11px', color: '#d97706', fontWeight: '600' }}>● Demo</span>
-        </div>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: '#f8fafc' }}>
-              {['User', 'Action', 'Resource', 'Timestamp', 'Status', 'IP Address'].map(h => (
+              {['User', 'Action', 'Patient', 'Timestamp', 'Status'].map(h => (
                 <th key={h} style={{ padding: '8px 14px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {logs.map(log => (
+            {logs.length === 0 ? (
+              <tr><td colSpan="5" style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>No activity yet.</td></tr>
+            ) : logs.map(log => (
               <tr key={log.id} style={{ borderBottom: '1px solid #f8fafc', transition: 'background 0.1s' }}
                 onMouseOver={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
                 onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}>
@@ -1153,9 +1105,8 @@ const ActivityLogsView = () => {
                 <td style={{ padding: '8px 14px', fontSize: '13px', color: '#64748b' }}>{log.resource}</td>
                 <td style={{ padding: '8px 14px', fontSize: '12px', color: '#64748b' }}>{log.timestamp}</td>
                 <td style={{ padding: '8px 14px' }}>
-                  <span style={{ padding: '2px 10px', borderRadius: '12px', backgroundColor: log.status === 'Success' ? '#f0fdf4' : '#fef2f2', color: log.status === 'Success' ? '#16a34a' : '#dc2626', fontSize: '11px', fontWeight: '600' }}>{log.status}</span>
+                  <span style={{ padding: '2px 10px', borderRadius: '12px', backgroundColor: '#f0fdf4', color: '#16a34a', fontSize: '11px', fontWeight: '600' }}>{log.status}</span>
                 </td>
-                <td style={{ padding: '8px 14px', fontSize: '12px', color: '#94a3b8' }}>{log.ip}</td>
               </tr>
             ))}
           </tbody>
@@ -1169,26 +1120,28 @@ const ActivityLogsView = () => {
 // Turns a real backend role ("student"/"doctor"/"admin") into the display
 // label + colors the table already expects.
 const ROLE_DISPLAY = {
-  admin:   { label: 'Administrator', color: '#7c3aed', bg: '#f5f3ff' },
-  doctor:  { label: 'Doctor',        color: '#16a34a', bg: '#f0fdf4' },
-  student: { label: 'Student',       color: '#2563eb', bg: '#eff6ff' },
+  'Super Admin': { label: 'Super Admin', color: '#7c3aed', bg: '#f5f3ff' },
+  Administrator: { label: 'Administrator', color: '#6d28d9', bg: '#f5f3ff' },
+  Doctor: { label: 'Doctor', color: '#16a34a', bg: '#f0fdf4' },
+  Nurse: { label: 'Nurse', color: '#2563eb', bg: '#eff6ff' },
+  Trainee: { label: 'Trainee', color: '#d97706', bg: '#fffbeb' },
+  Viewer: { label: 'Viewer', color: '#64748b', bg: '#f8fafc' },
 };
 
-// Converts one real /api/users document into the shape this screen's table
-// already knows how to render (id, name, email, role, roleColor, roleBg,
-// status, lastLogin).
 const mapRealUser = (u) => {
-  const display = ROLE_DISPLAY[u.role] || ROLE_DISPLAY.student;
+  const display = ROLE_DISPLAY[u.role] || { label: u.role || 'Viewer', color: '#64748b', bg: '#f8fafc' };
+  const lastSeen = u.lastLogin || u.lastLoginAt;
   return {
-    id: u._id,
-    name: u.displayName || u.email,
+    id: u._id || u.id,
+    name: u.fullName || u.displayName || u.email,
     email: u.email,
     role: display.label,
+    department: u.department || '—',
     roleColor: display.color,
     roleBg: display.bg,
-    status: 'Active', // the backend doesn't track online/session status yet
-    lastLogin: u.lastLoginAt
-      ? new Date(u.lastLoginAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+    status: u.status || 'Active',
+    lastLogin: lastSeen
+      ? new Date(lastSeen).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
       : '—',
   };
 };
@@ -1234,7 +1187,7 @@ const AdminPanel = ({ onNavigate }) => {
 
     const loadActivity = async () => {
       try {
-        const data = await getRecentActivity(6);
+        const data = await getRecentActivity(50);
         setRecentActivity(data);
       } catch (err) {
         console.error('Failed to load recent activity:', err);
@@ -1271,11 +1224,49 @@ const AdminPanel = ({ onNavigate }) => {
   // users needs more backend work (Firebase Admin user deletion, etc.) that
   // isn't built yet. Rather than silently pretending it worked on fake local
   // data, these tell you clearly that the action isn't wired up yet.
-  const deleteUser  = () => showToast('Deleting real users isn\'t connected yet — coming in a future update.');
-  const toggleUser  = () => showToast('Changing user status isn\'t connected yet — coming in a future update.');
-  const addUser     = () => {
-    showToast('New users must sign up through the Signup screen — admin-created accounts aren\'t supported yet.');
-    setShowAddModal(false);
+  const deleteUser = async (id) => {
+    if (!window.confirm('Delete this user?')) return;
+    try {
+      await deleteUserRequest(id);
+      setUsers((current) => current.filter((user) => user.id !== id));
+      showToast('User deleted');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not delete user');
+    }
+  };
+
+  const toggleUser = async (id, nextStatus) => {
+    const current = users.find((user) => user.id === id);
+    const status = nextStatus || (current?.status === 'Active' ? 'Inactive' : 'Active');
+    try {
+      const result = await updateUserStatus(id, status);
+      setUsers((list) => list.map((user) => user.id === id ? mapRealUser(result.user) : user));
+      showToast(`User is now ${status}`);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not update status');
+    }
+  };
+
+  const addUser = async (draft) => {
+    const payload = draft && draft.name ? draft : newUser;
+    if (!payload.name || !payload.email) {
+      showToast('Name and email are required');
+      return;
+    }
+    try {
+      const created = await createUserRequest({
+        fullName: payload.name,
+        email: payload.email,
+        role: payload.role,
+        department: payload.department || 'Cardiology',
+      });
+      setUsers((current) => [mapRealUser(created.user), ...current]);
+      setShowAddModal(false);
+      setNewUser({ name: '', email: '', role: 'Doctor' });
+      showToast(`User created. Temporary password: ${created.temporaryPassword}`);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not create user');
+    }
   };
 
   const inputSt = {
@@ -1299,17 +1290,17 @@ const AdminPanel = ({ onNavigate }) => {
   const renderContent = () => {
     switch(activeNav) {
       case 'Users':
-        return <EnhancedUsersView />;
+        return <EnhancedUsersView users={users} onDelete={deleteUser} onToggle={toggleUser} onAdd={addUser} />;
       case 'Roles & Permissions':
-        return <RolesPermissionsView />;
+        return <RolesPermissionsView users={users} />;
       case 'Access Control':
         return <AccessControlView />;
       case 'System Settings':
         return <SystemSettingsView />;
       case 'Reports & Data':
-        return <ReportsDataView />;
+        return <ReportsDataView activity={recentActivity} onNavigate={onNavigate} />;
       case 'Activity Logs':
-        return <ActivityLogsView />;
+        return <ActivityLogsView activity={recentActivity} />;
       default:
         return (
           <DashboardContent 
@@ -1324,6 +1315,7 @@ const AdminPanel = ({ onNavigate }) => {
             toast={toast} inputSt={inputSt}
             statCards={statCards} recentActivity={recentActivity}
             loadingOverview={loadingOverview} loadingActivity={loadingActivity}
+            onViewActivity={() => setActiveNav('Activity Logs')}
           />
         );
     }

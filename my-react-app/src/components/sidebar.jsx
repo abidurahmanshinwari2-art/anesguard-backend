@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { auth, signOut } from '../firebase/config';
 
 export const NAV_ITEMS = [
   { label: 'Dashboard', screen: 'dashboard', icon: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z' },
@@ -40,16 +39,13 @@ export const Sidebar = ({ activeLabel, onNavigate, onLogout }) => {
     if (item.screen && onNavigate) onNavigate(item.screen);
   };
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      localStorage.removeItem('anesguard_user');
-      localStorage.removeItem('anesguard_user_data');
-      if (onLogout) onLogout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('anesguard_user');
+    localStorage.removeItem('anesguard_user_data');
     setShowLogoutConfirm(false);
+    if (onLogout) onLogout();
   };
 
   return (

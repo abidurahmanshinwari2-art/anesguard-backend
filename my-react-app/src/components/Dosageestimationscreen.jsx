@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './sidebar';
+import { API_URL, authHeaders } from '../api/config';
 
 const drugOptions = [
   { label: 'Propofol (Induction)', stdDose: 2.0 },
@@ -11,7 +12,7 @@ const drugOptions = [
   { label: 'Atropine (Premedication)', stdDose: 0.02 },
 ];
 
-const DosageEstimationScreen = ({ onBack, onGenerateReport, onNavigate }) => {
+const DosageEstimationScreen = ({ assessmentId, onBack, onGenerateReport, onNavigate }) => {
   const [selectedDrug, setSelectedDrug] = useState(drugOptions[0]);
   const [stdDose, setStdDose] = useState('2.0');
   const [weight, setWeight] = useState('70');
@@ -19,7 +20,8 @@ const DosageEstimationScreen = ({ onBack, onGenerateReport, onNavigate }) => {
   const [patientData, setPatientData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Fetch latest assessment for patient data
+  const [saving, setSaving] = useState(false);
+
   useEffect(() => {
     const fetchPatientData = async () => {
       const token = localStorage.getItem('token');
@@ -29,14 +31,14 @@ const DosageEstimationScreen = ({ onBack, onGenerateReport, onNavigate }) => {
       }
 
       try {
-        const response = await fetch('https://anesguard-backend.onrender.com/api/assessments', {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
+        const url = assessmentId
+          ? `${API_URL}/assessments/${assessmentId}`
+          : `${API_URL}/assessments?limit=1`;
+        const response = await fetch(url, { headers: authHeaders() });
         const data = await response.json();
-        if (data.success && data.assessments && data.assessments.length > 0) {
-          const latest = data.assessments[0];
+        const latest = assessmentId ? data.assessment : data.assessments?.[0];
+        if (data.success && latest) {
           setPatientData(latest);
-          // ✅ Auto-fill weight and age from patient data
           if (latest.weight) setWeight(String(latest.weight));
           if (latest.age) setAge(String(latest.age));
         }
@@ -48,7 +50,7 @@ const DosageEstimationScreen = ({ onBack, onGenerateReport, onNavigate }) => {
     };
 
     fetchPatientData();
-  }, []);
+  }, [assessmentId]);
 
   const calcDose = (() => {
     const d = parseFloat(stdDose), w = parseFloat(weight);
@@ -56,6 +58,32 @@ const DosageEstimationScreen = ({ onBack, onGenerateReport, onNavigate }) => {
   })();
   const rangeLow = calcDose !== null ? +(calcDose * 0.9).toFixed(1) : null;
   const rangeHigh = calcDose !== null ? +(calcDose * 1.1).toFixed(1) : null;
+
+  const handleGenerateReport = async () => {
+    const caseId = patientData?._id || assessmentId;
+    if (!caseId) {
+      onGenerateReport && onGenerateReport();
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await fetch(`${API_URL}/assessments/${caseId}/dosage`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          drugSelected: selectedDrug.label,
+          calculatedDose: calcDose,
+          doseRange: rangeLow !== null ? `${rangeLow} mg - ${rangeHigh} mg` : '',
+        }),
+      });
+    } catch (error) {
+      console.error('Error saving dosage:', error);
+    } finally {
+      setSaving(false);
+      onGenerateReport && onGenerateReport(caseId);
+    }
+  };
 
   const handleDrugChange = (e) => {
     const drug = drugOptions.find(d => d.label === e.target.value);
@@ -145,8 +173,8 @@ const DosageEstimationScreen = ({ onBack, onGenerateReport, onNavigate }) => {
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px', maxWidth: '640px' }}>
           <button onClick={onBack}
             style={{ padding: '10px 32px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '14px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>Back</button>
-          <button onClick={onGenerateReport}
-            style={{ padding: '10px 28px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', fontSize: '14px', fontWeight: '600', color: '#fff', cursor: 'pointer', boxShadow: '0 3px 10px rgba(37,99,235,0.35)' }}>Generate Report</button>
+          <button onClick={handleGenerateReport} disabled={saving}
+            style={{ padding: '10px 28px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', fontSize: '14px', fontWeight: '600', color: '#fff', cursor: 'pointer', boxShadow: '0 3px 10px rgba(37,99,235,0.35)' }}>{saving ? 'Saving...' : 'Generate Report'}</button>
         </div>
       </main>
     </div>

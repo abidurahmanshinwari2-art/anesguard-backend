@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, User, Lock, Mail, Phone, Building, Calendar } from 'lucide-react';
+import { API_URL } from '../api/config';
 
 const SignupScreen = ({ onSwitchToLogin }) => {
   const [formData, setFormData] = useState({
@@ -50,7 +51,7 @@ const SignupScreen = ({ onSwitchToLogin }) => {
     setAuthError('');
 
     try {
-      const response = await fetch('https://anesguard-backend.onrender.com/api/auth/register', {
+      const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -68,7 +69,7 @@ const SignupScreen = ({ onSwitchToLogin }) => {
       const data = await response.json();
 
       if (data.success) {
-        alert('Registration successful! Please login.');
+        alert(data.message || 'Registration successful. Please log in.');
         setLoading(false);
         onSwitchToLogin();
       } else {
@@ -241,7 +242,7 @@ const SignupScreen = ({ onSwitchToLogin }) => {
                     <option value="Pediatrics">Pediatrics</option>
                     <option value="Orthopedics">Orthopedics</option>
                     <option value="Radiology">Radiology</option>
-                    <option value="Emergency">Emergency Medicine</option>
+                    <option value="Emergency Medicine">Emergency Medicine</option>
                     <option value="Surgery">Surgery</option>
                   </select>
                 </div>

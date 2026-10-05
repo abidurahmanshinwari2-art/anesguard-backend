@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './sidebar';
 import { Search, Eye, Edit, Trash2, Download, Printer } from 'lucide-react';
+import { API_URL, authHeaders } from '../api/config';
 
 const AssessmentHistory = ({ onNavigate }) => {
   const [assessments, setAssessments] = useState([]);
@@ -11,20 +12,14 @@ const AssessmentHistory = ({ onNavigate }) => {
   useEffect(() => {
     const fetchAssessments = async () => {
       const token = localStorage.getItem('token');
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      
+
       if (!token) {
         setLoading(false);
         return;
       }
 
       try {
-        const response = await fetch('https://anesguard-backend.onrender.com/api/assessments', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'userid': user.id || user._id,
-          },
-        });
+        const response = await fetch(`${API_URL}/assessments?limit=100`, { headers: authHeaders() });
         const data = await response.json();
         if (data.success) {
           setAssessments(data.assessments || []);
@@ -55,6 +50,39 @@ const AssessmentHistory = ({ onNavigate }) => {
     return matchSearch && matchRisk;
   });
 
+  const deleteAssessment = async (id) => {
+    if (!window.confirm('Delete this assessment?')) return;
+    const response = await fetch(`${API_URL}/assessments/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    const data = await response.json();
+    if (data.success) {
+      setAssessments((current) => current.filter((item) => item._id !== id));
+    } else {
+      alert(data.message || 'Could not delete this assessment');
+    }
+  };
+
+  const exportCsv = () => {
+    const header = ['Patient Name', 'Age', 'Risk Level', 'Score', 'Date'];
+    const rows = filteredData.map((item) => [
+      item.patientName || '',
+      item.age ?? '',
+      item.riskLevel || '',
+      item.riskScore ?? '',
+      item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '',
+    ]);
+    const csv = [header, ...rows].map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'anesguard-assessments.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f1f5f9' }}>
       <Sidebar activeLabel="History" onNavigate={onNavigate} onLogout={() => onNavigate && onNavigate('login')} />
@@ -65,10 +93,10 @@ const AssessmentHistory = ({ onNavigate }) => {
             <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>View and manage all patient assessments</p>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '13px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>
+            <button onClick={exportCsv} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '13px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>
               <Download size={16} /> Export CSV
             </button>
-            <button style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '13px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>
+            <button onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '13px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>
               <Printer size={16} /> Print
             </button>
           </div>
@@ -136,13 +164,13 @@ const AssessmentHistory = ({ onNavigate }) => {
                           </td>
                           <td style={{ padding: '10px 14px' }}>
                             <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                              <button style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer' }}>
+                              <button onClick={() => onNavigate && onNavigate('patientDetails', { id: assessment._id })} style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer' }}>
                                 <Eye size={14} color="#2563eb" />
                               </button>
-                              <button style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer' }}>
+                              <button onClick={() => onNavigate && onNavigate('editAssessment', { id: assessment._id })} style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer' }}>
                                 <Edit size={14} color="#d97706" />
                               </button>
-                              <button style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #ef4444', background: '#fef2f2', cursor: 'pointer' }}>
+                              <button onClick={() => deleteAssessment(assessment._id)} style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #ef4444', background: '#fef2f2', cursor: 'pointer' }}>
                                 <Trash2 size={14} color="#dc2626" />
                               </button>
                             </div>

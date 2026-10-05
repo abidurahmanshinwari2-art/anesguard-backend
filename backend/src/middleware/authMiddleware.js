@@ -1,35 +1,44 @@
-const admin = require('../config/firebaseAdmin');
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+
+const ADMIN_ROLES = ['Super Admin', 'Administrator'];
 
 const protect = async (req, res, next) => {
   const authHeader = req.headers.authorization || '';
 
   if (!authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'No auth token provided' });
+    return res.status(401).json({ success: false, message: 'No auth token provided' });
   }
 
-  const idToken = authHeader.split(' ')[1];
+  const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = await admin.auth().verifyIdToken(idToken);
-    req.user = {
-      uid: decoded.uid,
-      email: decoded.email,
-    };
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ success: false, message: 'Server auth is not configured' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+
+    if (!user || user.isDeleted) {
+      return res.status(401).json({ success: false, message: 'Invalid or expired token' });
+    }
+    if (user.status === 'Inactive') {
+      return res.status(403).json({ success: false, message: 'This account is inactive' });
+    }
+
+    req.user = user;
     next();
   } catch (err) {
-    console.error('Token verification failed:', err.message);
-    return res.status(401).json({ message: 'Invalid or expired token' });
+    return res.status(401).json({ success: false, message: 'Invalid or expired token' });
   }
 };
 
-const requireAdmin = async (req, res, next) => {
-  const User = require('../models/User');
-  const user = await User.findOne({ firebaseUid: req.user.uid });
-
-  if (!user || user.role !== 'admin') {
-    return res.status(403).json({ message: 'Admin access required' });
+const requireAdmin = (req, res, next) => {
+  if (!req.user || !ADMIN_ROLES.includes(req.user.role)) {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
   }
   next();
 };
 
-module.exports = { protect, requireAdmin };
+module.exports = { protect, requireAdmin, ADMIN_ROLES };

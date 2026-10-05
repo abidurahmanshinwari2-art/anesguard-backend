@@ -1,20 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './sidebar';
+import { API_URL, authHeaders } from '../api/config';
 
-// ── Charts ─────────────────────────────────────────────────────────────────
-const PieChart = () => {
-  const slices = [
-    { pct: 0.42, color: '#22c55e', label: 'Low (42%)' },
-    { pct: 0.38, color: '#f59e0b', label: 'Moderate (38%)' },
-    { pct: 0.20, color: '#ef4444', label: 'High (20%)' },
-  ];
+const PieChart = ({ low = 0, moderate = 0, high = 0 }) => {
+  const total = low + moderate + high;
+  const slices = total === 0
+    ? [{ pct: 1, color: '#e5e7eb', label: 'No cases yet' }]
+    : [
+        { pct: low / total, color: '#22c55e', label: `Low (${Math.round((low / total) * 100)}%)` },
+        { pct: moderate / total, color: '#f59e0b', label: `Moderate (${Math.round((moderate / total) * 100)}%)` },
+        { pct: high / total, color: '#ef4444', label: `High (${Math.round((high / total) * 100)}%)` },
+      ].filter((slice) => slice.pct > 0);
   const cx = 55, cy = 55, r = 48;
   let cum = -Math.PI / 2;
   const paths = slices.map(s => {
     const a1 = cum, a2 = cum + s.pct * 2 * Math.PI; cum = a2;
     const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
     const x2 = cx + r * Math.cos(a2), y2 = cy + r * Math.sin(a2);
-    return { ...s, d: `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${s.pct > 0.5 ? 1 : 0},1 ${x2},${y2} Z` };
+    const d = s.pct >= 0.999
+      ? `M${cx},${cy - r} A${r},${r} 0 1,1 ${cx - 0.01},${cy - r} Z`
+      : `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${s.pct > 0.5 ? 1 : 0},1 ${x2},${y2} Z`;
+    return { ...s, d };
   });
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -33,44 +39,45 @@ const PieChart = () => {
   );
 };
 
-const LineChart = () => {
-  const pts = [{ x:0,y:4 },{ x:1,y:5 },{ x:2,y:6 },{ x:3,y:7 },{ x:4,y:11 }];
-  const labels = ['21 May','22 May','23 May','24 May','25 May'];
-  const W=170,H=110,pl=28,pr=10,pt=10,pb=28;
-  const cW=W-pl-pr, cH=H-pt-pb, maxY=12;
-  const tx = i => pl + (i/(pts.length-1))*cW;
-  const ty = v => pt + cH - (v/maxY)*cH;
-  const d  = pts.map((p,i) => `${i===0?'M':'L'}${tx(i)},${ty(p.y)}`).join(' ');
+const LineChart = ({ points = [] }) => {
+  const pts = points.length ? points : [{ label: '—', value: 0 }];
+  const W = 170, H = 110, pl = 28, pr = 10, pt = 10, pb = 28;
+  const cW = W - pl - pr, cH = H - pt - pb, maxY = 12;
+  const tx = i => pts.length === 1 ? pl + cW / 2 : pl + (i / (pts.length - 1)) * cW;
+  const ty = v => pt + cH - (v / maxY) * cH;
+  const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${tx(i)},${ty(p.value)}`).join(' ');
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
-      {[0,3,6,9,12].map(v => (
+      {[0, 3, 6, 9, 12].map(v => (
         <g key={v}>
-          <line x1={pl} y1={ty(v)} x2={W-pr} y2={ty(v)} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="3,3" />
-          <text x={pl-4} y={ty(v)+4} textAnchor="end" fontSize="9" fill="#94a3b8">{v}</text>
+          <line x1={pl} y1={ty(v)} x2={W - pr} y2={ty(v)} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="3,3" />
+          <text x={pl - 4} y={ty(v) + 4} textAnchor="end" fontSize="9" fill="#94a3b8">{v}</text>
         </g>
       ))}
       <path d={d} fill="none" stroke="#2563eb" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      {pts.map((p,i) => <circle key={i} cx={tx(i)} cy={ty(p.y)} r="3.5" fill="#2563eb" stroke="#fff" strokeWidth="1.5" />)}
-      {labels.map((l,i) => <text key={i} x={tx(i)} y={H-6} textAnchor="middle" fontSize="8.5" fill="#94a3b8">{l}</text>)}
+      {pts.map((p, i) => <circle key={i} cx={tx(i)} cy={ty(p.value)} r="3.5" fill="#2563eb" stroke="#fff" strokeWidth="1.5" />)}
+      {pts.map((p, i) => <text key={p.label + i} x={tx(i)} y={H - 6} textAnchor="middle" fontSize="8.5" fill="#94a3b8">{p.label}</text>)}
     </svg>
   );
 };
 
-const BarChart = () => {
-  const data = [{ l:'Jan',v:5 },{ l:'Feb',v:7 },{ l:'Mar',v:9 },{ l:'Apr',v:12 },{ l:'May',v:11 }];
-  const W=170,H=110,pl=24,pr=10,pt=10,pb=28;
-  const cW=W-pl-pr, cH=H-pt-pb, maxV=15, gap=cW/data.length, bW=gap*0.5;
+const BarChart = ({ months = [] }) => {
+  const data = months.length ? months : [{ label: '—', value: 0 }];
+  const W = 170, H = 110, pl = 24, pr = 10, pt = 10, pb = 28;
+  const cW = W - pl - pr, cH = H - pt - pb;
+  const maxV = Math.max(1, ...data.map(d => d.value));
+  const gap = cW / data.length, bW = gap * 0.5;
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
-      {[0,5,10,15].map(v => (
+      {[0, Math.ceil(maxV / 2), maxV].map(v => (
         <g key={v}>
-          <line x1={pl} y1={pt+cH-(v/maxV)*cH} x2={W-pr} y2={pt+cH-(v/maxV)*cH} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="3,3" />
-          <text x={pl-4} y={pt+cH-(v/maxV)*cH+4} textAnchor="end" fontSize="9" fill="#94a3b8">{v}</text>
+          <line x1={pl} y1={pt + cH - (v / maxV) * cH} x2={W - pr} y2={pt + cH - (v / maxV) * cH} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="3,3" />
+          <text x={pl - 4} y={pt + cH - (v / maxV) * cH + 4} textAnchor="end" fontSize="9" fill="#94a3b8">{v}</text>
         </g>
       ))}
-      {data.map((d,i) => {
-        const bH=( d.v/maxV)*cH, bx=pl+i*gap+gap/2-bW/2, by=pt+cH-bH;
-        return <g key={i}><rect x={bx} y={by} width={bW} height={bH} fill="#2563eb" rx="3"/><text x={bx+bW/2} y={H-6} textAnchor="middle" fontSize="9" fill="#94a3b8">{d.l}</text></g>;
+      {data.map((item, i) => {
+        const bH = (item.value / maxV) * cH, bx = pl + i * gap + gap / 2 - bW / 2, by = pt + cH - bH;
+        return <g key={item.label}><rect x={bx} y={by} width={bW} height={Math.max(bH, 0)} fill="#2563eb" rx="3" /><text x={bx + bW / 2} y={H - 6} textAnchor="middle" fontSize="9" fill="#94a3b8">{item.label}</text></g>;
       })}
     </svg>
   );
@@ -89,7 +96,7 @@ const DownloadIcon = () => (
   </svg>
 );
 
-const ReportSummaryScreen = ({ onBackToDashboard, onNavigate }) => {
+const ReportSummaryScreen = ({ assessmentId, onBackToDashboard, onNavigate }) => {
   const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, low: 0, moderate: 0, high: 0 });
@@ -97,37 +104,20 @@ const ReportSummaryScreen = ({ onBackToDashboard, onNavigate }) => {
   useEffect(() => {
     const fetchData = async () => {
       const token = localStorage.getItem('token');
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      
       if (!token) {
         setLoading(false);
         return;
       }
 
       try {
-        // Fetch stats
-        const statsResponse = await fetch('https://anesguard-backend.onrender.com/api/assessments/stats', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'userid': user.id || user._id,
-          },
-        });
+        const [statsResponse, assessmentsResponse] = await Promise.all([
+          fetch(`${API_URL}/assessments/stats`, { headers: authHeaders() }),
+          fetch(`${API_URL}/assessments?limit=100`, { headers: authHeaders() }),
+        ]);
         const statsData = await statsResponse.json();
-        if (statsData.success) {
-          setStats(statsData.stats);
-        }
-
-        // Fetch assessments
-        const assessmentsResponse = await fetch('https://anesguard-backend.onrender.com/api/assessments', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'userid': user.id || user._id,
-          },
-        });
         const assessmentsData = await assessmentsResponse.json();
-        if (assessmentsData.success) {
-          setAssessments(assessmentsData.assessments || []);
-        }
+        if (statsData.success) setStats(statsData.stats);
+        if (assessmentsData.success) setAssessments(assessmentsData.assessments || []);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -138,7 +128,17 @@ const ReportSummaryScreen = ({ onBackToDashboard, onNavigate }) => {
     fetchData();
   }, []);
 
-  const latestAssessment = assessments.length > 0 ? assessments[0] : null;
+  const latestAssessment = assessments.find((item) => item._id === assessmentId) || assessments[0] || null;
+  const trend = [...assessments].reverse().slice(-5).map((item) => ({
+    label: new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    value: item.riskScore || 0,
+  }));
+  const monthCounts = assessments.reduce((acc, item) => {
+    const label = new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short' });
+    acc[label] = (acc[label] || 0) + 1;
+    return acc;
+  }, {});
+  const months = Object.entries(monthCounts).slice(-5).map(([label, value]) => ({ label, value }));
 
   return (
     <div style={{ display: 'flex', height: '100vh', fontFamily: "'Segoe UI', sans-serif", backgroundColor: '#f1f5f9' }}>
@@ -186,9 +186,9 @@ const ReportSummaryScreen = ({ onBackToDashboard, onNavigate }) => {
 
               <div style={{ backgroundColor: '#fff', border: '1.5px solid #e5e7eb', borderRadius: '10px', padding: '16px 18px' }}>
                 <p style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>Dosage Summary</p>
-                <SummaryRow label="Selected Drug" value="Propofol (Induction)" />
-                <SummaryRow label="Calculated Dose" value="140 mg" valueStyle={{ color: '#16a34a', fontWeight: '800' }} />
-                <SummaryRow label="Dose Range" value="126 mg - 154 mg" valueStyle={{ color: '#2563eb', fontWeight: '700' }} />
+                <SummaryRow label="Selected Drug" value={latestAssessment?.drugSelected || 'Not saved yet'} />
+                <SummaryRow label="Calculated Dose" value={latestAssessment?.calculatedDose != null ? `${latestAssessment.calculatedDose} mg` : '—'} valueStyle={{ color: '#16a34a', fontWeight: '800' }} />
+                <SummaryRow label="Dose Range" value={latestAssessment?.doseRange || '—'} valueStyle={{ color: '#2563eb', fontWeight: '700' }} />
                 <div style={{ marginTop: '14px', padding: '10px 12px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '7px' }}>
                   <p style={{ margin: 0, fontSize: '11.5px', color: '#dc2626', fontWeight: '600', lineHeight: '1.5' }}>
                     Disclaimer: Educational use only.<br />Not for clinical decision making.
@@ -202,15 +202,15 @@ const ReportSummaryScreen = ({ onBackToDashboard, onNavigate }) => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                 <div>
                   <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: '600', color: '#374151', textAlign: 'center' }}>Risk Level Distribution</p>
-                  <PieChart />
+                  <PieChart low={stats.low} moderate={stats.moderate} high={stats.high} />
                 </div>
                 <div>
                   <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: '600', color: '#374151', textAlign: 'center' }}>Risk Score Trend</p>
-                  <LineChart />
+                  <LineChart points={trend} />
                 </div>
                 <div>
                   <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: '600', color: '#374151', textAlign: 'center' }}>Cases by Month</p>
-                  <BarChart />
+                  <BarChart months={months} />
                 </div>
               </div>
             </div>

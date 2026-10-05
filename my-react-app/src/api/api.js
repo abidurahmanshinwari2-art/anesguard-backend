@@ -1,7 +1,4 @@
-// my-react-app/src/api/api.js
-
-// ✅ Use your LIVE backend URL
-const API_URL = 'https://anesguard-backend.onrender.com/api';
+import { API_URL } from './config';
 
 export const api = {
   // Auth endpoints

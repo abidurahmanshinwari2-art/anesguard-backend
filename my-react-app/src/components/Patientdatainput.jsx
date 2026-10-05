@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Sidebar } from './sidebar';
+import { API_URL, authHeaders } from '../api/config';
 
 const medicalHistoryOptions = [
   ['Hypertension', 'Kidney Disease'],
@@ -84,29 +85,23 @@ const PatientDataInput = ({ onSaveAndContinue, onNavigate }) => {
     }
 
     const token = localStorage.getItem('token');
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    
+
     if (!token) {
       alert('Please login again');
       return;
     }
 
     try {
-      const response = await fetch('https://anesguard-backend.onrender.com/api/assessments', {
+      const response = await fetch(`${API_URL}/assessments`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'userid': user.id || user._id,
-        },
+        headers: authHeaders(),
         body: JSON.stringify(form),
       });
 
       const data = await response.json();
 
-      if (response.ok && data.success) {
-        alert('Assessment saved successfully!');
-        onSaveAndContinue && onSaveAndContinue(form);
+      if (response.ok && data.success && data.assessment?._id) {
+        onSaveAndContinue && onSaveAndContinue(data.assessment._id);
       } else {
         console.error('Save error:', data);
         alert('Could not save assessment: ' + (data.message || 'Unknown error'));

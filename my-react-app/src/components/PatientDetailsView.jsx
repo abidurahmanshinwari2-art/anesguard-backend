@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './sidebar';
 import { ArrowLeft, Download, Printer, Edit, User, Calendar, Heart, Activity, AlertTriangle, CheckCircle } from 'lucide-react';
+import { API_URL, authHeaders } from '../api/config';
 
 const PatientDetailsView = ({ onNavigate, patientId }) => {
   const [loading, setLoading] = useState(true);
@@ -15,8 +16,8 @@ const PatientDetailsView = ({ onNavigate, patientId }) => {
       }
 
       try {
-        const response = await fetch(`https://anesguard-backend.onrender.com/api/assessments/${patientId || ''}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
+        const response = await fetch(`${API_URL}/assessments/${patientId}`, {
+          headers: authHeaders(),
         });
         const data = await response.json();
         if (data.success) {
@@ -81,7 +82,7 @@ const PatientDetailsView = ({ onNavigate, patientId }) => {
             <button style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '13px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>
               <Download size={16} /> Download
             </button>
-            <button style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '13px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>
+            <button onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '13px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>
               <Printer size={16} /> Print
             </button>
             <button onClick={() => onNavigate && onNavigate('editAssessment', { id: patient._id })}

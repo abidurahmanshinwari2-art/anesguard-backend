@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { API_URL } from '../api/config';
 
 const LoginScreen = ({ onSwitchToSignup, onLoginSuccess }) => {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -37,7 +38,7 @@ const LoginScreen = ({ onSwitchToSignup, onLoginSuccess }) => {
     setAuthError('');
 
     try {
-      const response = await fetch('https://anesguard-backend.onrender.com/api/auth/login', {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

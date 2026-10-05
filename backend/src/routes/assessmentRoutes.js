@@ -12,6 +12,7 @@ const {
   getStatsSummary,
 } = require('../controllers/assessmentController');
 
+router.get('/stats', protect, getStatsSummary);
 router.get('/stats/summary', protect, getStatsSummary);
 
 router.route('/')
@@ -19,11 +20,11 @@ router.route('/')
   .post(protect, createAssessment)
   .delete(protect, bulkDeleteAssessments);
 
+router.patch('/:id/dosage', protect, updateDosage);
+
 router.route('/:id')
   .get(protect, getAssessmentById)
   .put(protect, updateAssessment)
   .delete(protect, deleteAssessment);
-
-router.patch('/:id/dosage', protect, updateDosage);
 
 module.exports = router;

@@ -26,10 +26,10 @@ const App = () => {
       {screen === 'login'            && <LoginScreen            onLoginSuccess={() => go('dashboard')}           onSwitchToSignup={() => go('signup')} />}
       {screen === 'signup'           && <SignupScreen           onSwitchToLogin={() => go('login')} />}
       {screen === 'dashboard'        && <StudentDashboard       onLogout={() => go('login')}                     onNavigate={go} />}
-      {screen === 'patientInput'     && <PatientDataInput       onSaveAndContinue={() => go('riskAssessment')}   onNavigate={go} />}
-      {screen === 'riskAssessment'   && <RiskAssessmentScreen   onBack={() => go('patientInput')}                onContinue={() => go('dosageEstimation')} onNavigate={go} />}
-      {screen === 'dosageEstimation' && <DosageEstimationScreen onBack={() => go('riskAssessment')}              onGenerateReport={() => go('report')}     onNavigate={go} />}
-      {screen === 'report'           && <ReportSummaryScreen    onBackToDashboard={() => go('dashboard')}        onNavigate={go} />}
+      {screen === 'patientInput'     && <PatientDataInput       onSaveAndContinue={(id) => go('riskAssessment', { id })} onNavigate={go} />}
+      {screen === 'riskAssessment'   && <RiskAssessmentScreen   assessmentId={params.id} onBack={() => go('patientInput')} onContinue={(id) => go('dosageEstimation', { id: id || params.id })} onNavigate={go} />}
+      {screen === 'dosageEstimation' && <DosageEstimationScreen assessmentId={params.id} onBack={() => go('riskAssessment', { id: params.id })} onGenerateReport={(id) => go('report', { id: id || params.id })} onNavigate={go} />}
+      {screen === 'report'           && <ReportSummaryScreen    assessmentId={params.id} onBackToDashboard={() => go('dashboard')} onNavigate={go} />}
       {screen === 'profile'          && <ProfileScreen          onNavigate={go} />}
       {screen === 'admin'            && <AdminPanel             onNavigate={go} />}
       {screen === 'history'          && <AssessmentHistory      onNavigate={go} />}

@@ -2,7 +2,9 @@ function calculateRisk({ age, bmi, medHistory = {} }) {
   const riskFactors = [];
 
   if (age > 60) riskFactors.push({ label: 'Age > 60 years', score: 2 });
+  else if (age > 50) riskFactors.push({ label: 'Age > 50 years', score: 1 });
   if (bmi > 30) riskFactors.push({ label: 'BMI > 30', score: 2 });
+  else if (bmi > 25) riskFactors.push({ label: 'BMI > 25', score: 1 });
   if (medHistory.Hypertension) riskFactors.push({ label: 'Hypertension', score: 2 });
   if (medHistory['Diabetes Mellitus']) riskFactors.push({ label: 'Diabetes Mellitus', score: 1 });
   if (medHistory['Respiratory Disease']) riskFactors.push({ label: 'Respiratory Disease', score: 1 });

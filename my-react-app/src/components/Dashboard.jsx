@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './sidebar';
+import { API_URL, authHeaders } from '../api/config';
 
 const statCards = [
   { label: 'Total Cases', value: 0, sub: 'All Assessments', accent: '#2563eb' },
@@ -26,37 +27,20 @@ const StudentDashboard = ({ onLogout, onNavigate }) => {
   useEffect(() => {
     const fetchData = async () => {
       const token = localStorage.getItem('token');
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      
       if (!token) {
         setLoading(false);
         return;
       }
 
       try {
-        // Fetch stats
-        const statsResponse = await fetch('https://anesguard-backend.onrender.com/api/assessments/stats', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'userid': user.id || user._id,
-          },
-        });
+        const [statsResponse, assessmentsResponse] = await Promise.all([
+          fetch(`${API_URL}/assessments/stats`, { headers: authHeaders() }),
+          fetch(`${API_URL}/assessments?limit=5`, { headers: authHeaders() }),
+        ]);
         const statsData = await statsResponse.json();
-        if (statsData.success) {
-          setStats(statsData.stats);
-        }
-
-        // Fetch recent assessments
-        const assessmentsResponse = await fetch('https://anesguard-backend.onrender.com/api/assessments?limit=5', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'userid': user.id || user._id,
-          },
-        });
         const assessmentsData = await assessmentsResponse.json();
-        if (assessmentsData.success) {
-          setRecentAssessments(assessmentsData.assessments || []);
-        }
+        if (statsData.success) setStats(statsData.stats);
+        if (assessmentsData.success) setRecentAssessments(assessmentsData.assessments || []);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -67,11 +51,12 @@ const StudentDashboard = ({ onLogout, onNavigate }) => {
     fetchData();
   }, []);
 
+  const percent = (count) => (stats.total ? `${Math.round((count / stats.total) * 100)}% of total` : '0% of total');
   const updatedStatCards = statCards.map(card => {
-    if (card.label === 'Total Cases') return { ...card, value: stats.total || 0 };
-    if (card.label === 'Low Risk Cases') return { ...card, value: stats.low || 0 };
-    if (card.label === 'Moderate Risk Cases') return { ...card, value: stats.moderate || 0 };
-    if (card.label === 'High Risk Cases') return { ...card, value: stats.high || 0 };
+    if (card.label === 'Total Cases') return { ...card, value: stats.total || 0, sub: 'All Assessments' };
+    if (card.label === 'Low Risk Cases') return { ...card, value: stats.low || 0, sub: percent(stats.low || 0) };
+    if (card.label === 'Moderate Risk Cases') return { ...card, value: stats.moderate || 0, sub: percent(stats.moderate || 0) };
+    if (card.label === 'High Risk Cases') return { ...card, value: stats.high || 0, sub: percent(stats.high || 0) };
     return card;
   });
 
@@ -112,7 +97,13 @@ const StudentDashboard = ({ onLogout, onNavigate }) => {
           <h2 style={{ margin: '0 0 14px', fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>Quick Actions</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '14px', marginBottom: '24px' }}>
             {quickActions.map(action => (
-              <button key={action.label} onClick={() => onNavigate && onNavigate(action.screen)}
+              <button key={action.label} onClick={() => {
+                if (action.label === 'Continue Last Case' && recentAssessments[0]) {
+                  onNavigate && onNavigate('riskAssessment', { id: recentAssessments[0]._id });
+                  return;
+                }
+                onNavigate && onNavigate(action.screen);
+              }}
                 style={{ background: action.bg, border: 'none', borderRadius: '12px', padding: '18px 16px', cursor: 'pointer', textAlign: 'left', boxShadow: '0 4px 12px rgba(0,0,0,0.12)', transition: 'transform 0.15s, box-shadow 0.15s' }}
                 onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(0,0,0,0.18)'; }}
                 onMouseOut={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)'; }}>
@@ -151,7 +142,7 @@ const StudentDashboard = ({ onLogout, onNavigate }) => {
                   <span><span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '20px', backgroundColor: riskBg[row.riskLevel] || '#f8fafc', color: riskColor[row.riskLevel] || '#64748b', fontSize: '12px', fontWeight: '700' }}>{row.riskLevel || 'Unknown'}</span></span>
                   <span style={{ fontSize: '13px', color: '#475569' }}>{row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '-'}</span>
                   <span>
-                    <button onClick={() => onNavigate && onNavigate('riskAssessment')}
+                    <button onClick={() => onNavigate && onNavigate('patientDetails', { id: row._id })}
                       style={{ background: 'none', border: 'none', color: '#2563eb', fontWeight: '700', fontSize: '13px', cursor: 'pointer', padding: 0 }}
                       onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
                       onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}>View</button>
