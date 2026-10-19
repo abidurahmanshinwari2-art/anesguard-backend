@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { getAllUsers, createUser as createUserRequest, updateUserStatus, deleteUser as deleteUserRequest } from '../api/users';
-import { getSystemOverview, getRecentActivity, getSettings, saveSettings } from '../api/admin';
+import { getAllUsers, createUser as createUserRequest, updateUser as updateUserRequest, updateUserStatus, deleteUser as deleteUserRequest } from '../api/users';
+import { getSystemOverview, getRecentActivity, getSettings, saveSettings, getAccessRules, saveAccessRules, deleteAdminAssessment } from '../api/admin';
+import { COUNTRIES, DATE_FORMATS, timezoneLabel } from '../data/countries';
+import { SURGERIES } from './CaseForm';
+import { startSessionClock } from '../utils/sessionClock';
 
 // ── SVG Icons ─────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 16, color = 'currentColor', fill = 'none', strokeWidth = 2 }) => (
@@ -18,36 +21,15 @@ const ShieldLogo = () => (
   </svg>
 );
 
-// ── Static Data ───────────────────────────────────────────────────────────────
-const STAT_CARDS = [
-  { icon: '👥', value: '128', label: 'Total Users',        link: 'View all users →', color: '#2563eb', bg: '#eff6ff' },
-  { icon: '🛡️',  value: '8',   label: 'User Roles',         link: 'View roles →',     color: '#16a34a', bg: '#f0fdf4' },
-  { icon: '⚙️',  value: '42',  label: 'System Settings',    link: 'Configure →',      color: '#7c3aed', bg: '#f5f3ff' },
-  { icon: '📄', value: '156', label: 'Reports Generated',  link: 'View reports →',   color: '#d97706', bg: '#fffbeb' },
-  { icon: '📊', value: '1,248',label: 'System Activities', link: 'View logs →',      color: '#dc2626', bg: '#fef2f2' },
-];
-
-const USERS = [
-  { id: 1, name: 'Dr. Ali Khan',    email: 'ali.khan@anesguard.com',    role: 'Administrator', roleColor: '#7c3aed', roleBg: '#f5f3ff', status: 'Active',   lastLogin: '2025-05-20 10:30 AM' },
-  { id: 2, name: 'Dr. Sara Ahmed',  email: 'sara.ahmed@anesguard.com',  role: 'Doctor',        roleColor: '#16a34a', roleBg: '#f0fdf4', status: 'Active',   lastLogin: '2025-05-20 09:15 AM' },
-  { id: 3, name: 'Nurse Fatima',    email: 'fatima.noor@anesguard.com', role: 'Nurse',         roleColor: '#2563eb', roleBg: '#eff6ff', status: 'Active',   lastLogin: '2025-05-19 08:45 PM' },
-  { id: 4, name: 'Bilal Hussain',   email: 'bilal.hussain@anesguard.com',role: 'Trainee',      roleColor: '#d97706', roleBg: '#fffbeb', status: 'Inactive', lastLogin: '2025-05-18 04:20 PM' },
-  { id: 5, name: 'Zainab Malik',    email: 'zainab.malik@anesguard.com', role: 'Viewer',       roleColor: '#64748b', roleBg: '#f8fafc', status: 'Active',   lastLogin: '2025-05-20 11:05 AM' },
-];
-
-const ACTIVITY_FEED = [
-  { icon: '🟢', text: 'User Dr. Ali Khan logged in',              time: '10:30 AM • May 20, 2025' },
-  { icon: '✏️',  text: 'User Sara Ahmed updated patient data',     time: '09:45 AM • May 20, 2025' },
-  { icon: '⚙️',  text: 'System settings updated',                 time: '08:20 AM • May 20, 2025' },
-  { icon: '📄', text: 'User Bilal Hussain generated report',      time: '06:15 PM • May 19, 2025' },
-  { icon: '🔴', text: 'User Zainab Malik logged out',             time: '05:40 PM • May 19, 2025' },
-];
+const DEPARTMENTS = ['Cardiology', 'Neurology', 'Pediatrics', 'Orthopedics', 'Radiology', 'Emergency Medicine', 'Surgery'];
+const ASSIGNABLE_ROLES = ['Administrator', 'Doctor', 'Nurse', 'Trainee', 'Viewer'];
+const PAGE_SIZE = 8;
 
 const QUICK_SETTINGS = [
-  { icon: '⚙️',  label: 'General Settings',      sub: 'Configure basic system settings' },
-  { icon: '🛡️',  label: 'Security Settings',     sub: 'Manage passwords & security'     },
-  { icon: '🔔', label: 'Notification Settings', sub: 'Configure system notifications'  },
-  { icon: '💾', label: 'Backup & Restore',      sub: 'Manage system backup'            },
+  { icon: '⚙️', label: 'General Settings', sub: 'Configure basic system settings', tab: 'general' },
+  { icon: '🛡️', label: 'Security Settings', sub: 'Manage passwords and session time', tab: 'security' },
+  { icon: '🔔', label: 'Notification Settings', sub: 'Configure system notifications', tab: 'notifications' },
+  { icon: '🔌', label: 'Integrations', sub: 'See which services are connected', tab: 'integrations' },
 ];
 
 const ACCESS_RULES = [
@@ -73,7 +55,8 @@ const initialSettings = {
   general: {
     systemName: 'AnesGuard',
     systemVersion: '2.5.0',
-    timezone: 'UTC+5',
+    country: 'Pakistan',
+    timezone: timezoneLabel('Asia/Karachi'),
     dateFormat: 'MM/DD/YYYY',
     language: 'English'
   },
@@ -201,7 +184,7 @@ const LEFT_NAV = [
 // ── VIEW COMPONENTS ─────────────────────────────────────────────────────────
 
 // ── ENHANCED USERS VIEW ─────────────────────────────────────────────────────
-const EnhancedUsersView = ({ users = [], onDelete, onToggle, onAdd }) => {
+const EnhancedUsersView = ({ users = [], onDelete, onToggle, onAdd, onEdit }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -277,19 +260,14 @@ const EnhancedUsersView = ({ users = [], onDelete, onToggle, onAdd }) => {
               <div>
                 <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>Role</label>
                 <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{ ...inputSt, width: '100%', appearance: 'auto' }}>
-                  {['Administrator','Doctor','Nurse','Trainee','Viewer'].map(r => <option key={r}>{r}</option>)}
+                  {ASSIGNABLE_ROLES.map(r => <option key={r}>{r}</option>)}
                 </select>
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>Department</label>
                 <select value={newUser.department} onChange={e => setNewUser({...newUser, department: e.target.value})} style={{ ...inputSt, width: '100%', appearance: 'auto' }}>
                   <option value="">Select Department</option>
-                  <option value="Cardiology">Cardiology</option>
-                  <option value="Neurology">Neurology</option>
-                  <option value="Pediatrics">Pediatrics</option>
-                  <option value="Surgery">Surgery</option>
-                  <option value="Radiology">Radiology</option>
-                  <option value="Emergency Medicine">Emergency Medicine</option>
+                  {DEPARTMENTS.map((department) => <option key={department} value={department}>{department}</option>)}
                 </select>
               </div>
             </div>
@@ -318,7 +296,7 @@ const EnhancedUsersView = ({ users = [], onDelete, onToggle, onAdd }) => {
           { label: 'Total Users', value: users.length, icon: '👥', color: '#2563eb' },
           { label: 'Active Users', value: users.filter(u => u.status === 'Active').length, icon: '✅', color: '#16a34a' },
           { label: 'Inactive Users', value: users.filter(u => u.status === 'Inactive').length, icon: '⏸️', color: '#d97706' },
-          { label: 'Total Roles', value: '6', icon: '🛡️', color: '#7c3aed' },
+          { label: 'Total Roles', value: new Set(users.map((user) => user.role)).size, icon: '🛡️', color: '#7c3aed' },
         ].map(stat => (
           <div key={stat.label} style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '14px 18px', border: '1px solid #e5e7eb' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -339,6 +317,7 @@ const EnhancedUsersView = ({ users = [], onDelete, onToggle, onAdd }) => {
         <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
           style={{ padding: '8px 12px', border: '1.5px solid #d1d5db', borderRadius: '8px', fontSize: '13px', backgroundColor: '#fff' }}>
           <option value="all">All Roles</option>
+          <option value="Super Admin">Super Admin</option>
           <option value="Administrator">Administrator</option>
           <option value="Doctor">Doctor</option>
           <option value="Nurse">Nurse</option>
@@ -379,9 +358,11 @@ const EnhancedUsersView = ({ users = [], onDelete, onToggle, onAdd }) => {
                   <td style={{ padding: '10px 16px', fontSize: '12px', color: '#94a3b8' }}>{user.lastLogin}</td>
                   <td style={{ padding: '10px 16px' }}>
                     <div style={{ display: 'flex', gap: '6px' }}>
+                      <button onClick={() => onEdit && onEdit(user)}
+                        style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: '#fff', fontSize: '11px', cursor: 'pointer' }}>Edit</button>
                       <button onClick={() => toggleUserStatus(user.id)}
                         style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: '#fff', fontSize: '11px', cursor: 'pointer' }}>
-                        {user.status === 'Active' ? '⏸️' : '▶️'}
+                        {user.status === 'Active' ? 'Pause' : 'Activate'}
                       </button>
                       <button onClick={() => deleteUser(user.id)}
                         style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #ef4444', backgroundColor: '#fef2f2', color: '#dc2626', fontSize: '11px', cursor: 'pointer' }}>🗑️</button>
@@ -402,12 +383,40 @@ const EnhancedUsersView = ({ users = [], onDelete, onToggle, onAdd }) => {
 
 // Dashboard View
 const DashboardContent = ({ 
-  users, setUsers, showAddModal, setShowAddModal,
-  newUser, setNewUser, addUser, filteredUsers,
+  users, setShowAddModal, filteredUsers,
   searchQuery, setSearchQuery, roleFilter, setRoleFilter,
-  statusFilter, setStatusFilter, deleteUser, toggleUser,
-  toast, inputSt, statCards, recentActivity, loadingOverview, loadingActivity, onViewActivity
-}) => (
+  statusFilter, setStatusFilter, deleteUser, toggleUser, onEditUser,
+  inputSt, statCards, recentActivity, loadingOverview, loadingActivity,
+  onViewActivity, onOpenNav, onOpenSettings, onOpenReport
+}) => {
+  const [page, setPage] = useState(1);
+  const [activityRange, setActivityRange] = useState('This Week');
+
+  useEffect(() => { setPage(1); }, [searchQuery, roleFilter, statusFilter, filteredUsers.length]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageUsers = filteredUsers.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const rangeStart = filteredUsers.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(safePage * PAGE_SIZE, filteredUsers.length);
+
+  const startOfThisWeek = new Date();
+  startOfThisWeek.setDate(startOfThisWeek.getDate() - startOfThisWeek.getDay());
+  startOfThisWeek.setHours(0, 0, 0, 0);
+  const rangedActivity = recentActivity.filter((item) => {
+    const date = new Date(item.createdAt || item.updatedAt);
+    if (Number.isNaN(date.getTime())) return false;
+    if (activityRange === 'This Week') return date >= startOfThisWeek;
+    if (activityRange === 'Last Week') {
+      const start = new Date(startOfThisWeek);
+      start.setDate(start.getDate() - 7);
+      return date >= start && date < startOfThisWeek;
+    }
+    const now = new Date();
+    return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+  });
+
+  return (
   <>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: '14px', marginBottom: '22px' }}>
       {loadingOverview ? (
@@ -423,11 +432,14 @@ const DashboardContent = ({
               <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#64748b', fontWeight: '500' }}>{card.label}</p>
             </div>
           </div>
-          <button style={{ background: 'none', border: 'none', padding: 0, fontSize: '12px', color: card.color, fontWeight: '600', cursor: 'pointer', textDecoration: 'none' }}
-            onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
-            onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}>
-            {card.link}
-          </button>
+          {card.link && (
+            <button onClick={() => onOpenNav && onOpenNav(card.nav, card.risk)}
+              style={{ background: 'none', border: 'none', padding: 0, fontSize: '12px', color: card.color, fontWeight: '600', cursor: 'pointer', textDecoration: 'none' }}
+              onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
+              onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}>
+              {card.link}
+            </button>
+          )}
         </div>
       ))}
     </div>
@@ -457,7 +469,7 @@ const DashboardContent = ({
           <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
             style={{ ...inputSt, appearance: 'auto', minWidth: '120px' }}>
             <option>All Roles</option>
-            {['Administrator','Doctor','Nurse','Trainee','Viewer'].map(r=><option key={r}>{r}</option>)}
+            {['Super Admin', ...ASSIGNABLE_ROLES].map(r=><option key={r}>{r}</option>)}
           </select>
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
             style={{ ...inputSt, appearance: 'auto', minWidth: '110px' }}>
@@ -465,8 +477,9 @@ const DashboardContent = ({
             <option>Active</option>
             <option>Inactive</option>
           </select>
-          <button style={{ display: 'flex', alignItems: 'center', gap: '5px', ...inputSt, cursor: 'pointer', whiteSpace: 'nowrap', backgroundColor: '#fff' }}>
-            <Icon d="M3 6h18M6 12h12M9 18h6" size={13} color="#64748b" /> Filter
+          <button onClick={() => { setSearchQuery(''); setRoleFilter('All Roles'); setStatusFilter('Status'); }}
+            style={{ display: 'flex', alignItems: 'center', gap: '5px', ...inputSt, cursor: 'pointer', whiteSpace: 'nowrap', backgroundColor: '#fff' }}>
+            Clear
           </button>
         </div>
 
@@ -480,11 +493,13 @@ const DashboardContent = ({
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.map((u, i) => (
-                <tr key={u.id} style={{ borderBottom: i < filteredUsers.length - 1 ? '1px solid #f8fafc' : 'none', transition: 'background 0.1s' }}
+              {pageUsers.length === 0 ? (
+                <tr><td colSpan="7" style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>{users.length ? 'No users match these filters.' : 'No users yet.'}</td></tr>
+              ) : pageUsers.map((u, i) => (
+                <tr key={u.id} style={{ borderBottom: i < pageUsers.length - 1 ? '1px solid #f8fafc' : 'none', transition: 'background 0.1s' }}
                   onMouseOver={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
                   onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                  <td style={{ padding: '12px 16px', fontSize: '13px', color: '#64748b', fontWeight: '600' }}>{u.id}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '13px', color: '#64748b', fontWeight: '600' }}>{String(u.id).slice(-6)}</td>
                   <td style={{ padding: '12px 16px', fontSize: '13.5px', fontWeight: '600', color: '#1e293b', whiteSpace: 'nowrap' }}>{u.name}</td>
                   <td style={{ padding: '12px 16px', fontSize: '12.5px', color: '#64748b' }}>{u.email}</td>
                   <td style={{ padding: '12px 16px' }}>
@@ -496,7 +511,7 @@ const DashboardContent = ({
                   <td style={{ padding: '12px 16px', fontSize: '12px', color: '#94a3b8', whiteSpace: 'nowrap' }}>{u.lastLogin}</td>
                   <td style={{ padding: '12px 16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <button title="Edit" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '3px', color: '#2563eb' }}>
+                      <button title="Edit" onClick={() => onEditUser(u)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '3px', color: '#2563eb' }}>
                         <Icon d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" size={15} color="#2563eb" />
                       </button>
                       <button title="Toggle Status" onClick={() => toggleUser(u.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '3px' }}>
@@ -514,13 +529,18 @@ const DashboardContent = ({
         </div>
 
         <div style={{ padding: '12px 20px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '12.5px', color: '#64748b' }}>Showing 1 to {filteredUsers.length} of 128 users</span>
+          <span style={{ fontSize: '12.5px', color: '#64748b' }}>Showing {rangeStart} to {rangeEnd} of {filteredUsers.length} users</span>
           <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-            {['«', '1', '2', '3', '...', '26', '»'].map((p, i) => (
-              <button key={i} style={{ width: '30px', height: '30px', borderRadius: '7px', border: `1px solid ${p === '1' ? '#2563eb' : '#e5e7eb'}`, backgroundColor: p === '1' ? '#2563eb' : '#fff', color: p === '1' ? '#fff' : '#374151', fontSize: '12.5px', fontWeight: p === '1' ? '700' : '400', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {p}
+            <button onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={safePage === 1}
+              style={{ width: '30px', height: '30px', borderRadius: '7px', border: '1px solid #e5e7eb', backgroundColor: '#fff', color: '#374151', cursor: safePage === 1 ? 'default' : 'pointer' }}>‹</button>
+            {Array.from({ length: pageCount }, (_, index) => index + 1).map((number) => (
+              <button key={number} onClick={() => setPage(number)}
+                style={{ width: '30px', height: '30px', borderRadius: '7px', border: `1px solid ${number === safePage ? '#2563eb' : '#e5e7eb'}`, backgroundColor: number === safePage ? '#2563eb' : '#fff', color: number === safePage ? '#fff' : '#374151', fontSize: '12.5px', fontWeight: number === safePage ? '700' : '400', cursor: 'pointer' }}>
+                {number}
               </button>
             ))}
+            <button onClick={() => setPage((current) => Math.min(pageCount, current + 1))} disabled={safePage === pageCount}
+              style={{ width: '30px', height: '30px', borderRadius: '7px', border: '1px solid #e5e7eb', backgroundColor: '#fff', color: '#374151', cursor: safePage === pageCount ? 'default' : 'pointer' }}>›</button>
           </div>
         </div>
       </div>
@@ -562,7 +582,8 @@ const DashboardContent = ({
           </div>
           <div style={{ padding: '6px 0' }}>
             {QUICK_SETTINGS.map((s, i) => (
-              <button key={i} style={{ width: '100%', padding: '10px 16px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left', borderBottom: i < QUICK_SETTINGS.length - 1 ? '1px solid #f8fafc' : 'none', transition: 'background 0.1s' }}
+              <button key={i} onClick={() => onOpenSettings(s.tab)}
+                style={{ width: '100%', padding: '10px 16px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left', borderBottom: i < QUICK_SETTINGS.length - 1 ? '1px solid #f8fafc' : 'none', transition: 'background 0.1s' }}
                 onMouseOver={e => e.currentTarget.style.background = '#f8fafc'}
                 onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
                 <span style={{ fontSize: '16px', flexShrink: 0 }}>{s.icon}</span>
@@ -608,13 +629,13 @@ const DashboardContent = ({
       <div style={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
           <p style={{ margin: 0, fontSize: '13.5px', fontWeight: '700', color: '#1e293b' }}>System Activity Overview</p>
-          <select style={{ ...inputSt, fontSize: '11.5px', padding: '4px 8px', appearance: 'auto' }}>
+          <select value={activityRange} onChange={(e) => setActivityRange(e.target.value)} style={{ ...inputSt, fontSize: '11.5px', padding: '4px 8px', appearance: 'auto' }}>
             <option>This Week</option>
             <option>Last Week</option>
             <option>This Month</option>
           </select>
         </div>
-        <LineChart activity={recentActivity} />
+        <LineChart activity={rangedActivity} />
       </div>
 
       <div style={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -626,6 +647,7 @@ const DashboardContent = ({
                 <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{item.patientName} ({item.riskLevel})</p>
                 <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>{item.createdAt ? new Date(item.createdAt).toLocaleString() : '—'}</p>
               </div>
+              <button onClick={() => onOpenReport(item._id)} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: '#fff', fontSize: '11px', cursor: 'pointer' }}>View</button>
             </div>
           ))}
           {recentActivity.length === 0 && <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>No assessments yet.</p>}
@@ -633,7 +655,8 @@ const DashboardContent = ({
       </div>
     </div>
   </>
-);
+  );
+};
 
 // Roles & Permissions View
 const BUILTIN_ROLES = [
@@ -646,11 +669,13 @@ const BUILTIN_ROLES = [
 ];
 
 const RolesPermissionsView = ({ users = [] }) => {
-  const roles = BUILTIN_ROLES.map((role) => ({
+  const [roleQuery, setRoleQuery] = useState('');
+  const catalog = BUILTIN_ROLES.map((role) => ({
     ...role,
     users: users.filter((user) => user.role === role.name).length,
     created: 'Built-in',
   }));
+  const roles = catalog.filter((role) => !roleQuery || role.name.toLowerCase().includes(roleQuery.toLowerCase()) || role.permissions.toLowerCase().includes(roleQuery.toLowerCase()));
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -662,9 +687,9 @@ const RolesPermissionsView = ({ users = [] }) => {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '14px', marginBottom: '20px' }}>
         {[
-          { label: 'Total Roles', value: roles.length, icon: '👥', color: '#2563eb' },
-          { label: 'Active Roles', value: roles.filter((role) => role.status === 'Active').length, icon: '✅', color: '#16a34a' },
-          { label: 'Admin Roles', value: 2, icon: '🔑', color: '#7c3aed' },
+          { label: 'Total Roles', value: catalog.length, icon: '👥', color: '#2563eb' },
+          { label: 'Active Roles', value: catalog.filter((role) => role.status === 'Active').length, icon: '✅', color: '#16a34a' },
+          { label: 'Admin Roles', value: catalog.filter((role) => role.name === 'Super Admin' || role.name === 'Administrator').length, icon: '🔑', color: '#7c3aed' },
           { label: 'Assigned Users', value: users.length, icon: '👤', color: '#d97706' },
         ].map(stat => (
           <div key={stat.label} style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '14px 18px', border: '1px solid #e5e7eb' }}>
@@ -681,7 +706,7 @@ const RolesPermissionsView = ({ users = [] }) => {
 
       <div style={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9' }}>
-          <input placeholder="Search roles..." style={{ padding: '8px 14px', border: '1.5px solid #d1d5db', borderRadius: '8px', fontSize: '13px', width: '280px', outline: 'none' }} />
+          <input value={roleQuery} onChange={(e) => setRoleQuery(e.target.value)} placeholder="Search roles..." style={{ padding: '8px 14px', border: '1.5px solid #d1d5db', borderRadius: '8px', fontSize: '13px', width: '280px', outline: 'none' }} />
         </div>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -692,7 +717,9 @@ const RolesPermissionsView = ({ users = [] }) => {
             </tr>
           </thead>
           <tbody>
-            {roles.map(role => (
+            {roles.length === 0 ? (
+              <tr><td colSpan="6" style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>No roles match that search.</td></tr>
+            ) : roles.map(role => (
               <tr key={role.id} style={{ borderBottom: '1px solid #f8fafc' }}>
                 <td style={{ padding: '10px 16px', fontWeight: '600', color: '#1e293b' }}>{role.name}</td>
                 <td style={{ padding: '10px 16px', color: '#64748b' }}>{role.users}</td>
@@ -713,16 +740,65 @@ const RolesPermissionsView = ({ users = [] }) => {
   );
 };
 
-// Access Control View
+const RULE_RESOURCES = ['User accounts', 'Own assessments', 'System settings', 'All activity'];
+const RULE_ROLES = ['Super Admin', 'Administrator', 'Doctor', 'Nurse', 'Trainee', 'Viewer', 'Doctor, Nurse, Trainee, Viewer', 'Every signed-in role'];
+const RULE_LEVELS = ['Full Control', 'Read/Write', 'Read Only', 'No Access'];
+
 const AccessControlView = () => {
-  const [rules] = useState(ACCESS_RULES);
+  const [rules, setRules] = useState(ACCESS_RULES);
+  const [query, setQuery] = useState('');
+  const [resourceFilter, setResourceFilter] = useState('All Resources');
+  const [roleFilter, setRoleFilter] = useState('All Roles');
+  const [editing, setEditing] = useState(null);
+  const [note, setNote] = useState('Loading saved rules...');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await getAccessRules();
+        setRules(data.rules || []);
+        setNote('Rules are saved and control who can manage user accounts. Super Admin always keeps full access.');
+      } catch (error) {
+        setNote(error.response?.data?.message || 'Could not load saved rules.');
+      }
+    };
+    load();
+  }, []);
+
+  const persist = async (nextRules, successNote) => {
+    setSaving(true);
+    try {
+      const data = await saveAccessRules(nextRules);
+      setRules(data.rules);
+      setEditing(null);
+      setNote(successNote);
+    } catch (error) {
+      setNote(error.response?.data?.message || 'Could not save rules.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const visible = rules.filter((rule) => {
+    const text = `${rule.resource} ${rule.role}`.toLowerCase();
+    const matchesQuery = !query || text.includes(query.toLowerCase());
+    const matchesResource = resourceFilter === 'All Resources' || rule.resource === resourceFilter;
+    const matchesRole = roleFilter === 'All Roles' || rule.role === roleFilter || String(rule.role).includes(roleFilter);
+    return matchesQuery && matchesResource && matchesRole;
+  });
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>Access Control</h2>
-          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>These rules are enforced by the API. They are not editable here.</p>
+          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>{note}</p>
         </div>
+        <button onClick={() => setEditing({ id: `rule-${Date.now()}`, resource: 'User accounts', role: 'Doctor', access: 'No Access', status: 'Active', isNew: true })}
+          style={{ padding: '9px 18px', borderRadius: '9px', border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+          + Add Rule
+        </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '14px', marginBottom: '20px' }}>
@@ -730,7 +806,7 @@ const AccessControlView = () => {
           { label: 'Total Rules', value: String(rules.length), icon: '📋', color: '#2563eb' },
           { label: 'Active Rules', value: String(rules.filter((rule) => rule.status === 'Active').length), icon: '✅', color: '#16a34a' },
           { label: 'Resources Protected', value: String(new Set(rules.map((rule) => rule.resource)).size), icon: '🛡️', color: '#7c3aed' },
-          { label: 'Access Violations', value: '0', icon: '⚠️', color: '#dc2626' },
+          { label: 'Inactive Rules', value: String(rules.filter((rule) => rule.status !== 'Active').length), icon: '⚠️', color: '#dc2626' },
         ].map(stat => (
           <div key={stat.label} style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '14px 18px', border: '1px solid #e5e7eb' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -746,16 +822,14 @@ const AccessControlView = () => {
 
       <div style={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '10px' }}>
-          <input placeholder="Search resources or roles..." style={{ flex: 1, padding: '8px 14px', border: '1.5px solid #d1d5db', borderRadius: '8px', fontSize: '13px', outline: 'none' }} />
-          <select style={{ padding: '8px 14px', border: '1.5px solid #d1d5db', borderRadius: '8px', fontSize: '13px', backgroundColor: '#fff' }}>
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search resources or roles..." style={{ flex: 1, padding: '8px 14px', border: '1.5px solid #d1d5db', borderRadius: '8px', fontSize: '13px', outline: 'none' }} />
+          <select value={resourceFilter} onChange={(e) => setResourceFilter(e.target.value)} style={{ padding: '8px 14px', border: '1.5px solid #d1d5db', borderRadius: '8px', fontSize: '13px', backgroundColor: '#fff' }}>
             <option>All Resources</option>
-            <option>Patient Records</option>
-            <option>Risk Assessment</option>
+            {RULE_RESOURCES.map((resource) => <option key={resource}>{resource}</option>)}
           </select>
-          <select style={{ padding: '8px 14px', border: '1.5px solid #d1d5db', borderRadius: '8px', fontSize: '13px', backgroundColor: '#fff' }}>
+          <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} style={{ padding: '8px 14px', border: '1.5px solid #d1d5db', borderRadius: '8px', fontSize: '13px', backgroundColor: '#fff' }}>
             <option>All Roles</option>
-            <option>Admin</option>
-            <option>Doctor</option>
+            {RULE_ROLES.map((role) => <option key={role}>{role}</option>)}
           </select>
         </div>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -767,7 +841,9 @@ const AccessControlView = () => {
             </tr>
           </thead>
           <tbody>
-            {rules.map(rule => (
+            {visible.length === 0 ? (
+              <tr><td colSpan="5" style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>No rules match these filters.</td></tr>
+            ) : visible.map(rule => (
               <tr key={rule.id} style={{ borderBottom: '1px solid #f8fafc' }}>
                 <td style={{ padding: '10px 16px', fontWeight: '600', color: '#1e293b' }}>{rule.resource}</td>
                 <td style={{ padding: '10px 16px' }}>
@@ -777,12 +853,14 @@ const AccessControlView = () => {
                   <span style={{ padding: '2px 10px', borderRadius: '12px', backgroundColor: `${accessLevelColors[rule.access]}15`, color: accessLevelColors[rule.access], fontSize: '11px', fontWeight: '600' }}>{rule.access}</span>
                 </td>
                 <td style={{ padding: '10px 16px' }}>
-                  <span style={{ padding: '3px 12px', borderRadius: '20px', backgroundColor: rule.status === 'Active' ? '#f0fdf4' : '#fef2f2', color: rule.status === 'Active' ? '#16a34a' : '#dc2626', fontSize: '11px', fontWeight: '600' }}>{rule.status}</span>
+                  <button onClick={() => persist(rules.map((item) => item.id === rule.id ? { ...item, status: item.status === 'Active' ? 'Inactive' : 'Active' } : item), 'Rule status saved.')}
+                    style={{ padding: '3px 12px', borderRadius: '20px', border: 'none', backgroundColor: rule.status === 'Active' ? '#f0fdf4' : '#fef2f2', color: rule.status === 'Active' ? '#16a34a' : '#dc2626', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>{rule.status}</button>
                 </td>
                 <td style={{ padding: '10px 16px' }}>
                   <div style={{ display: 'flex', gap: '6px' }}>
-                    <button style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: '#fff', fontSize: '11px', cursor: 'pointer' }}>✏️</button>
-                    <button style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #ef4444', backgroundColor: '#fef2f2', color: '#dc2626', fontSize: '11px', cursor: 'pointer' }}>🗑️</button>
+                    <button onClick={() => setEditing({ ...rule })} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: '#fff', fontSize: '11px', cursor: 'pointer' }}>Edit</button>
+                    <button onClick={() => { if (window.confirm('Delete this access rule?')) persist(rules.filter((item) => item.id !== rule.id), 'Rule deleted.'); }}
+                      style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #ef4444', backgroundColor: '#fef2f2', color: '#dc2626', fontSize: '11px', cursor: 'pointer' }}>Delete</button>
                   </div>
                 </td>
               </tr>
@@ -790,27 +868,69 @@ const AccessControlView = () => {
           </tbody>
         </table>
       </div>
+
+      {editing && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: '#fff', borderRadius: '14px', padding: '28px', width: '440px', boxShadow: '0 16px 48px rgba(0,0,0,0.18)' }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: '17px', fontWeight: '700', color: '#1e293b' }}>{editing.isNew ? 'Add access rule' : 'Edit access rule'}</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {[
+                ['Resource', 'resource', RULE_RESOURCES],
+                ['Role', 'role', RULE_ROLES],
+                ['Access', 'access', RULE_LEVELS],
+                ['Status', 'status', ['Active', 'Inactive']],
+              ].map(([label, key, options]) => (
+                <label key={key} style={{ fontSize: '12.5px', fontWeight: '600', color: '#374151' }}>
+                  {label}
+                  <select value={editing[key]} onChange={(e) => setEditing((current) => ({ ...current, [key]: e.target.value }))}
+                    style={{ display: 'block', width: '100%', marginTop: '5px', padding: '8px 12px', border: '1.5px solid #d1d5db', borderRadius: '8px', fontSize: '13px' }}>
+                    {options.map((option) => <option key={option}>{option}</option>)}
+                  </select>
+                </label>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '18px' }}>
+              <button onClick={() => setEditing(null)} style={{ padding: '9px 18px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', cursor: 'pointer' }}>Cancel</button>
+              <button disabled={saving} onClick={() => {
+                const next = editing.isNew
+                  ? [...rules, { id: editing.id, resource: editing.resource, role: editing.role, access: editing.access, status: editing.status }]
+                  : rules.map((item) => item.id === editing.id ? { ...item, resource: editing.resource, role: editing.role, access: editing.access, status: editing.status } : item);
+                persist(next, editing.isNew ? 'Rule added.' : 'Rule saved.');
+              }} style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: '#2563eb', color: '#fff', fontWeight: '600', cursor: 'pointer' }}>{saving ? 'Saving...' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 // System Settings View
-const SystemSettingsView = () => {
+const SystemSettingsView = ({ initialTab = 'general' }) => {
   const [settings, setSettings] = useState(initialSettings);
-  const [activeTab, setActiveTab] = useState('general');
+  const [savedSnapshot, setSavedSnapshot] = useState(initialSettings);
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [statusNote, setStatusNote] = useState('Loading saved settings...');
   const [savingSettings, setSavingSettings] = useState(false);
+
+  useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
 
   useEffect(() => {
     const load = async () => {
       try {
         const data = await getSettings();
-        setSettings((current) => ({
-          ...current,
-          general: { ...current.general, ...data.settings.general },
-          security: { ...current.security, ...data.settings.security },
-          notifications: { ...current.notifications, ...data.settings.notifications },
-        }));
+        const next = {
+          ...initialSettings,
+          general: { ...initialSettings.general, ...data.settings.general },
+          security: { ...initialSettings.security, ...data.settings.security },
+          notifications: { ...initialSettings.notifications, ...data.settings.notifications },
+        };
+        next.general.systemName = 'AnesGuard';
+        next.general.language = 'English';
+        const savedCountry = COUNTRIES.find((country) => country.name === next.general.country);
+        if (savedCountry) next.general.timezone = timezoneLabel(savedCountry.zone);
+        setSettings(next);
+        setSavedSnapshot(next);
         setStatusNote(data.settings.updatedAt
           ? `Last saved ${new Date(data.settings.updatedAt).toLocaleString()}`
           : 'No custom settings saved yet.');
@@ -829,13 +949,14 @@ const SystemSettingsView = () => {
     setSavingSettings(true);
     try {
       const data = await saveSettings({
-        general: settings.general,
+        general: { ...settings.general, systemName: 'AnesGuard', language: 'English' },
         security: settings.security,
         notifications: settings.notifications,
       });
+      const minutes = startSessionClock(settings.security.sessionTimeout);
       setStatusNote(data.settings?.updatedAt
-        ? `Last saved ${new Date(data.settings.updatedAt).toLocaleString()}`
-        : 'Settings saved.');
+        ? `Last saved ${new Date(data.settings.updatedAt).toLocaleString()}. This session ends in ${minutes} minutes.`
+        : `Settings saved. This session ends in ${minutes} minutes.`);
     } catch (error) {
       setStatusNote(error.response?.data?.message || 'Could not save settings.');
     } finally {
@@ -858,7 +979,7 @@ const SystemSettingsView = () => {
           <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>These values are stored for this installation.</p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={() => setSettings(initialSettings)} style={{ padding: '8px 18px', borderRadius: '8px', border: '1.5px solid #d1d5db', backgroundColor: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>Reset form</button>
+          <button onClick={() => { setSettings(savedSnapshot); setStatusNote('Form restored to the last saved settings. Save to keep any new changes.'); }} style={{ padding: '8px 18px', borderRadius: '8px', border: '1.5px solid #d1d5db', backgroundColor: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>Reset form</button>
           <button onClick={handleSaveSettings} disabled={savingSettings} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 3px 10px rgba(37,99,235,0.3)' }}>{savingSettings ? 'Saving...' : 'Save Settings'}</button>
         </div>
       </div>
@@ -877,18 +998,52 @@ const SystemSettingsView = () => {
           <div>
             <h3 style={{ margin: '0 0 20px', fontSize: '15px', fontWeight: '600', color: '#1e293b' }}>General Settings</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-              {[
-                { label: 'System Name', key: 'systemName' },
-                { label: 'System Version', key: 'systemVersion' },
-                { label: 'Time Zone', key: 'timezone' },
-                { label: 'Date Format', key: 'dateFormat' },
-                { label: 'Language', key: 'language' },
-              ].map(field => (
-                <div key={field.key}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>{field.label}</label>
-                  <input type="text" value={settings.general[field.key] || ''} onChange={(e) => updateSection('general', field.key, e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #d1d5db', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
-                </div>
-              ))}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>System Name</label>
+                <input readOnly value="AnesGuard" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #d1d5db', fontSize: '13px', outline: 'none', boxSizing: 'border-box', backgroundColor: '#f8fafc', color: '#64748b' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>System Version</label>
+                <input type="text" value={settings.general.systemVersion || ''} onChange={(e) => updateSection('general', 'systemVersion', e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #d1d5db', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Country</label>
+                <select
+                  value={settings.general.country || ''}
+                  onChange={(e) => {
+                    const country = COUNTRIES.find((item) => item.name === e.target.value);
+                    if (!country) return;
+                    setSettings((current) => ({
+                      ...current,
+                      general: {
+                        ...current.general,
+                        country: country.name,
+                        timezone: timezoneLabel(country.zone),
+                        systemName: 'AnesGuard',
+                        language: 'English',
+                      },
+                    }));
+                  }}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #d1d5db', fontSize: '13px', backgroundColor: '#fff' }}
+                >
+                  <option value="">Select a country</option>
+                  {COUNTRIES.map((country) => <option key={country.name} value={country.name}>{country.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Time Zone</label>
+                <input readOnly value={settings.general.timezone || ''} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #d1d5db', fontSize: '13px', outline: 'none', boxSizing: 'border-box', backgroundColor: '#f8fafc', color: '#1e293b', fontWeight: '600' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Date Format</label>
+                <select value={settings.general.dateFormat || 'MM/DD/YYYY'} onChange={(e) => updateSection('general', 'dateFormat', e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #d1d5db', fontSize: '13px', backgroundColor: '#fff' }}>
+                  {DATE_FORMATS.map((format) => <option key={format} value={format}>{format}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Language</label>
+                <input readOnly value="English" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #d1d5db', fontSize: '13px', outline: 'none', boxSizing: 'border-box', backgroundColor: '#f8fafc', color: '#64748b' }} />
+              </div>
             </div>
           </div>
         )}
@@ -898,8 +1053,9 @@ const SystemSettingsView = () => {
             <h3 style={{ margin: '0 0 20px', fontSize: '15px', fontWeight: '600', color: '#1e293b' }}>Security Settings</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Session note (minutes)</label>
-                <input type="number" value={settings.security.sessionTimeout || ''} onChange={(e) => updateSection('security', 'sessionTimeout', e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #d1d5db', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Session timeout (minutes)</label>
+                <input type="number" min="1" max="1440" value={settings.security.sessionTimeout || ''} onChange={(e) => updateSection('security', 'sessionTimeout', e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #d1d5db', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#64748b' }}>After you save, the signed-in session stays open for this many minutes, then returns to the login screen.</p>
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Password policy label</label>
@@ -959,15 +1115,19 @@ const SystemSettingsView = () => {
 };
 
 // Reports & Data View
-const ReportsDataView = ({ activity = [], onNavigate }) => {
-  const [reportType, setReportType] = useState('all');
-  const reports = activity.map((item) => ({
+const ReportsDataView = ({ activity = [], onNavigate, onDelete, initialRisk = 'all' }) => {
+  const [reportType, setReportType] = useState(initialRisk);
+  useEffect(() => { setReportType(initialRisk); }, [initialRisk]);
+  const reports = activity.filter((item) => item && item._id && item.patientName).map((item) => ({
     id: item._id,
-    title: `${item.patientName || 'Patient'} assessment`,
-    type: item.riskLevel || 'Risk',
-    date: item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '—',
-    status: item.status === 'Completed' ? 'Generated' : 'Processing',
-  })).filter((report) => reportType === 'all' || report.type === reportType || (reportType === 'risk' && ['Low', 'Moderate', 'High'].includes(report.type)));
+    title: item.patientName,
+    age: item.age ?? '—',
+    surgery: item.riskProfile?.surgeryName || SURGERIES.find((surgery) => surgery.id === item.surgeryType)?.name || 'Not recorded',
+    type: item.riskLevel || '—',
+    score: item.riskScore ?? '—',
+    date: item.createdAt ? new Date(item.createdAt).toLocaleString() : '—',
+    status: item.status || 'Pending',
+  })).filter((report) => reportType === 'all' || report.type === reportType);
 
   const today = new Date().toLocaleDateString();
   const reportStats = [
@@ -1013,26 +1173,32 @@ const ReportsDataView = ({ activity = [], onNavigate }) => {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: '#f8fafc' }}>
-              {['Patient', 'Risk', 'Date', 'Status', 'Open'].map(h => (
+              {['Patient', 'Age', 'Surgery', 'Risk', 'Score', 'Date', 'Status', 'Open'].map(h => (
                 <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {reports.length === 0 ? (
-              <tr><td colSpan="5" style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>No assessments yet.</td></tr>
+              <tr><td colSpan="8" style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>No saved assessments yet.</td></tr>
             ) : reports.map(report => (
               <tr key={report.id} style={{ borderBottom: '1px solid #f8fafc' }}>
                 <td style={{ padding: '10px 16px', fontWeight: '600', color: '#1e293b' }}>{report.title}</td>
+                <td style={{ padding: '10px 16px', fontSize: '12px', color: '#64748b' }}>{report.age}</td>
+                <td style={{ padding: '10px 16px', fontSize: '12px', color: '#374151' }}>{report.surgery}</td>
                 <td style={{ padding: '10px 16px' }}>
                   <span style={{ padding: '2px 10px', borderRadius: '12px', backgroundColor: '#eff6ff', color: '#2563eb', fontSize: '11px', fontWeight: '600' }}>{report.type}</span>
                 </td>
+                <td style={{ padding: '10px 16px', fontSize: '12px', color: '#1e293b', fontWeight: '700' }}>{report.score}</td>
                 <td style={{ padding: '10px 16px', fontSize: '12px', color: '#64748b' }}>{report.date}</td>
                 <td style={{ padding: '10px 16px' }}>
-                  <span style={{ padding: '3px 12px', borderRadius: '20px', backgroundColor: report.status === 'Generated' ? '#f0fdf4' : '#fffbeb', color: report.status === 'Generated' ? '#16a34a' : '#d97706', fontSize: '11px', fontWeight: '600' }}>{report.status}</span>
+                  <span style={{ padding: '3px 12px', borderRadius: '20px', backgroundColor: report.status === 'Completed' ? '#f0fdf4' : '#fffbeb', color: report.status === 'Completed' ? '#16a34a' : '#d97706', fontSize: '11px', fontWeight: '600' }}>{report.status}</span>
                 </td>
                 <td style={{ padding: '10px 16px' }}>
-                  <button onClick={() => onNavigate && onNavigate('patientDetails', { id: report.id })} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: '#fff', fontSize: '11px', cursor: 'pointer' }}>View</button>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button onClick={() => onNavigate && onNavigate('patientDetails', { id: report.id })} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: '#fff', fontSize: '11px', cursor: 'pointer' }}>View</button>
+                    <button onClick={() => onDelete && onDelete(report.id)} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #ef4444', backgroundColor: '#fef2f2', color: '#dc2626', fontSize: '11px', cursor: 'pointer' }}>Delete</button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -1044,15 +1210,17 @@ const ReportsDataView = ({ activity = [], onNavigate }) => {
 };
 
 // Activity Logs View
-const ActivityLogsView = ({ activity = [] }) => {
-  const logs = activity.map((item) => ({
+const ActivityLogsView = ({ activity = [], onRefresh }) => {
+  const [logQuery, setLogQuery] = useState('');
+  const logs = activity.filter((item) => item && item._id && item.patientName).map((item) => ({
     id: item._id,
-    user: item.createdBy?.fullName || 'User',
-    action: item.status === 'Completed' ? 'Completed assessment' : 'Created assessment',
-    resource: item.patientName || 'Assessment',
+    user: item.createdBy?.fullName || item.createdBy?.email || 'Signed-in user',
+    action: item.status === 'Completed' ? 'Completed assessment' : 'Saved assessment',
+    resource: item.patientName,
+    risk: item.riskLevel || '—',
     timestamp: new Date(item.updatedAt || item.createdAt).toLocaleString(),
-    status: 'Success',
-  }));
+    status: item.status || 'Pending',
+  })).filter((log) => !logQuery || `${log.user} ${log.action} ${log.resource} ${log.risk} ${log.status}`.toLowerCase().includes(logQuery.toLowerCase()));
 
   const logStats = [
     { label: 'Recent events', value: logs.length, icon: '📊', color: '#2563eb' },
@@ -1068,6 +1236,7 @@ const ActivityLogsView = ({ activity = [] }) => {
           <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>Activity Logs</h2>
           <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Recent assessments saved in the system</p>
         </div>
+        <button onClick={onRefresh} style={{ padding: '8px 16px', borderRadius: '8px', border: '1.5px solid #d1d5db', backgroundColor: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>Refresh</button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '14px', marginBottom: '20px' }}>
@@ -1085,17 +1254,20 @@ const ActivityLogsView = ({ activity = [] }) => {
       </div>
 
       <div style={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9' }}>
+          <input value={logQuery} onChange={(e) => setLogQuery(e.target.value)} placeholder="Search activity..." style={{ width: '280px', padding: '8px 14px', border: '1.5px solid #d1d5db', borderRadius: '8px', fontSize: '13px', outline: 'none' }} />
+        </div>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: '#f8fafc' }}>
-              {['User', 'Action', 'Patient', 'Timestamp', 'Status'].map(h => (
+              {['User', 'Action', 'Patient', 'Risk', 'Timestamp', 'Status'].map(h => (
                 <th key={h} style={{ padding: '8px 14px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {logs.length === 0 ? (
-              <tr><td colSpan="5" style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>No activity yet.</td></tr>
+              <tr><td colSpan="6" style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>No saved assessments yet.</td></tr>
             ) : logs.map(log => (
               <tr key={log.id} style={{ borderBottom: '1px solid #f8fafc', transition: 'background 0.1s' }}
                 onMouseOver={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
@@ -1103,9 +1275,10 @@ const ActivityLogsView = ({ activity = [] }) => {
                 <td style={{ padding: '8px 14px', fontWeight: '600', color: '#1e293b', fontSize: '13px' }}>{log.user}</td>
                 <td style={{ padding: '8px 14px', fontSize: '13px', color: '#374151' }}>{log.action}</td>
                 <td style={{ padding: '8px 14px', fontSize: '13px', color: '#64748b' }}>{log.resource}</td>
+                <td style={{ padding: '8px 14px', fontSize: '13px', color: '#374151' }}>{log.risk}</td>
                 <td style={{ padding: '8px 14px', fontSize: '12px', color: '#64748b' }}>{log.timestamp}</td>
                 <td style={{ padding: '8px 14px' }}>
-                  <span style={{ padding: '2px 10px', borderRadius: '12px', backgroundColor: '#f0fdf4', color: '#16a34a', fontSize: '11px', fontWeight: '600' }}>{log.status}</span>
+                  <span style={{ padding: '2px 10px', borderRadius: '12px', backgroundColor: log.status === 'Completed' ? '#f0fdf4' : '#fffbeb', color: log.status === 'Completed' ? '#16a34a' : '#d97706', fontSize: '11px', fontWeight: '600' }}>{log.status}</span>
                 </td>
               </tr>
             ))}
@@ -1153,7 +1326,12 @@ const AdminPanel = ({ onNavigate }) => {
   const [statusFilter, setStatusFilter] = useState('Status');
   const [users, setUsers] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Doctor' });
+  const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Doctor', department: 'Cardiology' });
+  const [editingUser, setEditingUser] = useState(null);
+  const [settingsTab, setSettingsTab] = useState('general');
+  const [reportRisk, setReportRisk] = useState('all');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sessionUser, setSessionUser] = useState({ name: 'Admin', role: 'Administrator' });
   const [toast, setToast] = useState('');
 
   // New: real system-wide stats, real recent activity, and the real user list.
@@ -1167,35 +1345,47 @@ const AdminPanel = ({ onNavigate }) => {
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
   useEffect(() => {
-    const loadOverview = async () => {
-      try {
-        const data = await getSystemOverview();
-        setStatCards([
-          { icon: '👥', value: data.users.total, label: 'Total Users', link: 'View users below →', color: '#2563eb', bg: '#eff6ff' },
-          { icon: '📄', value: data.assessments.total, label: 'Total Assessments', link: '', color: '#7c3aed', bg: '#f5f3ff' },
-          { icon: '🟢', value: data.assessments.low, label: 'Low Risk Assessments', link: '', color: '#16a34a', bg: '#f0fdf4' },
-          { icon: '🟡', value: data.assessments.moderate, label: 'Moderate Risk Assessments', link: '', color: '#d97706', bg: '#fffbeb' },
-          { icon: '🔴', value: data.assessments.high, label: 'High Risk Assessments', link: '', color: '#dc2626', bg: '#fef2f2' },
-        ]);
-      } catch (err) {
-        console.error('Failed to load admin overview:', err);
-        if (err.response?.status === 403) setAccessDenied(true);
-      } finally {
-        setLoadingOverview(false);
+    try {
+      const stored = JSON.parse(localStorage.getItem('user') || localStorage.getItem('anesguard_user_data') || '{}');
+      if (stored.fullName || stored.email || stored.role) {
+        setSessionUser({ name: stored.fullName || stored.email || 'Admin', role: stored.role || 'Administrator' });
       }
-    };
+    } catch {
+      setSessionUser({ name: 'Admin', role: 'Administrator' });
+    }
+  }, []);
 
-    const loadActivity = async () => {
-      try {
-        const data = await getRecentActivity(50);
-        setRecentActivity(data);
-      } catch (err) {
-        console.error('Failed to load recent activity:', err);
-      } finally {
-        setLoadingActivity(false);
-      }
-    };
+  const loadOverview = async () => {
+    try {
+      const data = await getSystemOverview();
+      setStatCards([
+        { icon: '👥', value: data.users.total, label: 'Total Users', link: 'Manage users →', nav: 'Users', color: '#2563eb', bg: '#eff6ff' },
+        { icon: '📄', value: data.assessments.total, label: 'Total Assessments', link: 'View reports →', nav: 'Reports & Data', risk: 'all', color: '#7c3aed', bg: '#f5f3ff' },
+        { icon: '🟢', value: data.assessments.low, label: 'Low Risk Assessments', link: 'View low risk →', nav: 'Reports & Data', risk: 'Low', color: '#16a34a', bg: '#f0fdf4' },
+        { icon: '🟡', value: data.assessments.moderate, label: 'Moderate Risk Assessments', link: 'View moderate risk →', nav: 'Reports & Data', risk: 'Moderate', color: '#d97706', bg: '#fffbeb' },
+        { icon: '🔴', value: data.assessments.high, label: 'High Risk Assessments', link: 'View high risk →', nav: 'Reports & Data', risk: 'High', color: '#dc2626', bg: '#fef2f2' },
+      ]);
+    } catch (err) {
+      console.error('Failed to load admin overview:', err);
+      if (err.response?.status === 403) setAccessDenied(true);
+    } finally {
+      setLoadingOverview(false);
+    }
+  };
 
+  const loadActivity = async () => {
+    setLoadingActivity(true);
+    try {
+      const data = await getRecentActivity(100);
+      setRecentActivity(Array.isArray(data) ? data.filter((item) => item && item._id && item.patientName) : []);
+    } catch (err) {
+      console.error('Failed to load recent activity:', err);
+    } finally {
+      setLoadingActivity(false);
+    }
+  };
+
+  useEffect(() => {
     const loadUsers = async () => {
       try {
         const data = await getAllUsers();
@@ -1213,6 +1403,12 @@ const AdminPanel = ({ onNavigate }) => {
     loadUsers();
   }, []);
 
+  useEffect(() => {
+    if (activeNav === 'Reports & Data' || activeNav === 'Activity Logs') {
+      loadActivity();
+    }
+  }, [activeNav]);
+
   const filteredUsers = users.filter(u => {
     const matchSearch = !searchQuery || u.name.toLowerCase().includes(searchQuery.toLowerCase()) || u.email.toLowerCase().includes(searchQuery.toLowerCase());
     const matchRole   = roleFilter === 'All Roles' || u.role === roleFilter;
@@ -1220,15 +1416,12 @@ const AdminPanel = ({ onNavigate }) => {
     return matchSearch && matchRole && matchStatus;
   });
 
-  // Honest placeholders: deleting/toggling/creating real Firebase-backed
-  // users needs more backend work (Firebase Admin user deletion, etc.) that
-  // isn't built yet. Rather than silently pretending it worked on fake local
-  // data, these tell you clearly that the action isn't wired up yet.
   const deleteUser = async (id) => {
     if (!window.confirm('Delete this user?')) return;
     try {
       await deleteUserRequest(id);
       setUsers((current) => current.filter((user) => user.id !== id));
+      loadOverview();
       showToast('User deleted');
     } catch (err) {
       showToast(err.response?.data?.message || 'Could not delete user');
@@ -1262,11 +1455,55 @@ const AdminPanel = ({ onNavigate }) => {
       });
       setUsers((current) => [mapRealUser(created.user), ...current]);
       setShowAddModal(false);
-      setNewUser({ name: '', email: '', role: 'Doctor' });
+      setNewUser({ name: '', email: '', role: 'Doctor', department: 'Cardiology' });
+      loadOverview();
       showToast(`User created. Temporary password: ${created.temporaryPassword}`);
     } catch (err) {
       showToast(err.response?.data?.message || 'Could not create user');
     }
+  };
+
+  const saveEditedUser = async () => {
+    if (!editingUser?.name?.trim()) {
+      showToast('Name is required');
+      return;
+    }
+    try {
+      const result = await updateUserRequest(editingUser.id, {
+        fullName: editingUser.name.trim(),
+        role: editingUser.role,
+        department: editingUser.department,
+      });
+      setUsers((list) => list.map((user) => String(user.id) === String(editingUser.id) ? mapRealUser(result.user) : user));
+      setEditingUser(null);
+      showToast('User updated');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not update user');
+    }
+  };
+
+  const deleteReport = async (id) => {
+    if (!window.confirm('Delete this assessment?')) return;
+    try {
+      await deleteAdminAssessment(id);
+      setRecentActivity((current) => current.filter((item) => item._id !== id));
+      loadOverview();
+      showToast('Assessment deleted');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not delete assessment');
+    }
+  };
+
+  const openSection = (nav, risk) => {
+    if (risk) setReportRisk(risk);
+    setActiveNav(nav);
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('anesguard_user_data');
+    if (onNavigate) onNavigate('login');
   };
 
   const inputSt = {
@@ -1290,32 +1527,34 @@ const AdminPanel = ({ onNavigate }) => {
   const renderContent = () => {
     switch(activeNav) {
       case 'Users':
-        return <EnhancedUsersView users={users} onDelete={deleteUser} onToggle={toggleUser} onAdd={addUser} />;
+        return <EnhancedUsersView users={users} onDelete={deleteUser} onToggle={toggleUser} onAdd={addUser} onEdit={(user) => setEditingUser({ ...user, department: user.department === '—' ? 'Cardiology' : user.department })} />;
       case 'Roles & Permissions':
         return <RolesPermissionsView users={users} />;
       case 'Access Control':
         return <AccessControlView />;
       case 'System Settings':
-        return <SystemSettingsView />;
+        return <SystemSettingsView initialTab={settingsTab} />;
       case 'Reports & Data':
-        return <ReportsDataView activity={recentActivity} onNavigate={onNavigate} />;
+        return <ReportsDataView activity={recentActivity} onNavigate={onNavigate} onDelete={deleteReport} initialRisk={reportRisk} />;
       case 'Activity Logs':
-        return <ActivityLogsView activity={recentActivity} />;
+        return <ActivityLogsView activity={recentActivity} onRefresh={loadActivity} />;
       default:
         return (
-          <DashboardContent 
-            users={users} setUsers={setUsers}
-            showAddModal={showAddModal} setShowAddModal={setShowAddModal}
-            newUser={newUser} setNewUser={setNewUser} addUser={addUser}
+          <DashboardContent
+            users={users} setShowAddModal={setShowAddModal}
             filteredUsers={filteredUsers}
             searchQuery={searchQuery} setSearchQuery={setSearchQuery}
             roleFilter={roleFilter} setRoleFilter={setRoleFilter}
             statusFilter={statusFilter} setStatusFilter={setStatusFilter}
             deleteUser={deleteUser} toggleUser={toggleUser}
-            toast={toast} inputSt={inputSt}
+            onEditUser={(user) => setEditingUser({ ...user, department: user.department === '—' ? 'Cardiology' : user.department })}
+            inputSt={inputSt}
             statCards={statCards} recentActivity={recentActivity}
             loadingOverview={loadingOverview} loadingActivity={loadingActivity}
             onViewActivity={() => setActiveNav('Activity Logs')}
+            onOpenNav={openSection}
+            onOpenSettings={(tab) => { setSettingsTab(tab); setActiveNav('System Settings'); }}
+            onOpenReport={(id) => onNavigate && onNavigate('patientDetails', { id })}
           />
         );
     }
@@ -1323,7 +1562,7 @@ const AdminPanel = ({ onNavigate }) => {
 
   return (
     <div style={{ display: 'flex', height: '100vh', fontFamily: "'Segoe UI', sans-serif", backgroundColor: '#f8fafc' }}>
-      <aside style={{ width: '215px', flexShrink: 0, background: 'linear-gradient(180deg,#1e3a8a 0%,#1a2f6b 100%)', display: 'flex', flexDirection: 'column', boxShadow: '2px 0 12px rgba(0,0,0,0.15)' }}>
+      <aside style={{ width: sidebarOpen ? '215px' : '0px', overflow: 'hidden', flexShrink: 0, background: 'linear-gradient(180deg,#1e3a8a 0%,#1a2f6b 100%)', display: 'flex', flexDirection: 'column', boxShadow: sidebarOpen ? '2px 0 12px rgba(0,0,0,0.15)' : 'none', transition: 'width 0.2s' }}>
         <div style={{ padding: '20px 18px', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ShieldLogo />
@@ -1369,16 +1608,15 @@ const AdminPanel = ({ onNavigate }) => {
         <div style={{ padding: '14px 18px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
             <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <span style={{ fontSize: '14px', fontWeight: '700', color: '#fff' }}>A</span>
+              <span style={{ fontSize: '14px', fontWeight: '700', color: '#fff' }}>{(sessionUser.name || 'A').charAt(0).toUpperCase()}</span>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Admin User</p>
-              <p style={{ margin: 0, fontSize: '11px', color: '#22c55e', fontWeight: '600' }}>Super Administrator</p>
+              <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sessionUser.name}</p>
+              <p style={{ margin: 0, fontSize: '11px', color: '#22c55e', fontWeight: '600' }}>{sessionUser.role}</p>
             </div>
-            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>▾</span>
           </div>
           <button
-            onClick={() => onNavigate && onNavigate('login')}
+            onClick={logout}
             style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1.5px solid rgba(220,38,38,0.6)', background: 'rgba(220,38,38,0.08)', color: '#fca5a5', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
             onMouseOver={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.18)'; }}
             onMouseOut={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.08)'; }}>
@@ -1391,7 +1629,7 @@ const AdminPanel = ({ onNavigate }) => {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <header style={{ backgroundColor: '#fff', padding: '0 24px', height: '62px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e5e7eb', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }}>
+            <button onClick={() => setSidebarOpen((open) => !open)} title={sidebarOpen ? 'Hide menu' : 'Show menu'} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }}>
               <Icon d="M3 12h18M3 6h18M3 18h18" size={20} color="#475569" />
             </button>
             <div>
@@ -1412,10 +1650,12 @@ const AdminPanel = ({ onNavigate }) => {
               <span style={{ fontSize: '12px', fontWeight: '600', color: '#16a34a' }}>Secure Session</span>
             </div>
             <div style={{ position: 'relative' }}>
-              <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px' }}>
+              <button onClick={() => setActiveNav('Activity Logs')} title="Open activity logs" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px' }}>
                 <Icon d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" size={20} color="#475569" />
               </button>
-              <span style={{ position: 'absolute', top: '2px', right: '2px', width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#ef4444', color: '#fff', fontSize: '9px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>3</span>
+              {recentActivity.length > 0 && (
+                <span style={{ position: 'absolute', top: '2px', right: '2px', minWidth: '16px', height: '16px', padding: '0 4px', borderRadius: '50%', backgroundColor: '#ef4444', color: '#fff', fontSize: '9px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{recentActivity.length > 9 ? '9+' : recentActivity.length}</span>
+              )}
             </div>
           </div>
         </header>
@@ -1424,6 +1664,40 @@ const AdminPanel = ({ onNavigate }) => {
           {toast && (
             <div style={{ position: 'fixed', top: '80px', right: '24px', zIndex: 999, padding: '12px 20px', borderRadius: '10px', backgroundColor: '#1e293b', color: '#fff', fontSize: '13px', fontWeight: '600', boxShadow: '0 8px 24px rgba(0,0,0,0.2)' }}>
               ✅ {toast}
+            </div>
+          )}
+
+          {editingUser && (
+            <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+              <div style={{ backgroundColor: '#fff', borderRadius: '14px', padding: '28px', width: '420px', boxShadow: '0 16px 48px rgba(0,0,0,0.18)' }}>
+                <h3 style={{ margin: '0 0 20px', fontSize: '17px', fontWeight: '700', color: '#1e293b' }}>Edit User</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>Full Name</label>
+                    <input value={editingUser.name} onChange={e => setEditingUser(p => ({ ...p, name: e.target.value }))} style={{ ...inputSt, width: '100%' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>Email</label>
+                    <input value={editingUser.email} disabled style={{ ...inputSt, width: '100%', backgroundColor: '#f8fafc' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>Role</label>
+                    <select value={editingUser.role} onChange={e => setEditingUser(p => ({ ...p, role: e.target.value }))} style={{ ...inputSt, width: '100%', appearance: 'auto' }}>
+                      {(sessionUser.role === 'Super Admin' ? ['Super Admin', ...ASSIGNABLE_ROLES] : ASSIGNABLE_ROLES).map(r => <option key={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>Department</label>
+                    <select value={editingUser.department} onChange={e => setEditingUser(p => ({ ...p, department: e.target.value }))} style={{ ...inputSt, width: '100%', appearance: 'auto' }}>
+                      {DEPARTMENTS.map((department) => <option key={department}>{department}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                  <button onClick={() => setEditingUser(null)} style={{ padding: '9px 20px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '13.5px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>Cancel</button>
+                  <button onClick={saveEditedUser} style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff', fontSize: '13.5px', fontWeight: '600', cursor: 'pointer' }}>Save</button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1443,7 +1717,13 @@ const AdminPanel = ({ onNavigate }) => {
                   <div>
                     <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>Role</label>
                     <select value={newUser.role} onChange={e => setNewUser(p=>({...p,role:e.target.value}))} style={{ ...inputSt, width: '100%', appearance: 'auto' }}>
-                      {['Administrator','Doctor','Nurse','Trainee','Viewer'].map(r=><option key={r}>{r}</option>)}
+                      {ASSIGNABLE_ROLES.map(r=><option key={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>Department</label>
+                    <select value={newUser.department} onChange={e => setNewUser(p=>({...p,department:e.target.value}))} style={{ ...inputSt, width: '100%', appearance: 'auto' }}>
+                      {DEPARTMENTS.map((department) => <option key={department}>{department}</option>)}
                     </select>
                   </div>
                 </div>
@@ -1457,6 +1737,7 @@ const AdminPanel = ({ onNavigate }) => {
 
           {renderContent()}
 
+          {activeNav === 'Dashboard' && (
           <div style={{
             position: 'sticky',
             bottom: '20px',
@@ -1496,9 +1777,55 @@ const AdminPanel = ({ onNavigate }) => {
                 <path d="M3 12l9-9 9 9" />
                 <path d="M12 3v18" />
               </svg>
+              Back to General Dashboard
+            </button>
+          </div>
+          )}
+
+          {activeNav !== 'Dashboard' && (
+          <div style={{
+            position: 'sticky',
+            bottom: '20px',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            marginTop: '20px',
+            paddingTop: '16px',
+            borderTop: '1px solid #e5e7eb',
+          }}>
+            <button
+              onClick={() => setActiveNav('Dashboard')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 24px',
+                borderRadius: '10px',
+                border: 'none',
+                background: 'linear-gradient(135deg,#2563eb,#1d4ed8)',
+                color: '#fff',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(37,99,235,0.3)',
+                transition: 'all 0.2s',
+              }}
+              onMouseOver={e => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 6px 20px rgba(37,99,235,0.4)';
+              }}
+              onMouseOut={e => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(37,99,235,0.3)';
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12l9-9 9 9" />
+                <path d="M12 3v18" />
+              </svg>
               Back to Dashboard
             </button>
           </div>
+          )}
 
           <div style={{ textAlign: 'center', padding: '12px 0 4px', borderTop: '1px solid #e5e7eb', marginTop: '8px' }}>
             <p style={{ margin: 0, fontSize: '11.5px', color: '#94a3b8' }}>© 2025 AnesGuard | Pre-Anesthesia Assessment Educational System</p>

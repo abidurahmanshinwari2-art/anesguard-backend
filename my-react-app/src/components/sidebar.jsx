@@ -5,8 +5,8 @@ export const NAV_ITEMS = [
   { label: 'New Assessment', screen: 'patientInput', icon: 'M12 5v14M5 12h14' },
   { label: 'Risk Assessment', screen: 'riskAssessment', icon: ['M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z', 'M12 9v4M12 17h.01'] },
   { label: 'Dosage Estimation', screen: 'dosageEstimation', icon: ['M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18'] },
-  { label: 'History', screen: 'history', icon: ['M12 8v4l3 3M12 2a10 10 0 100 20 10 10 0 000-20z'] },
-  { label: 'Reports', screen: 'report', icon: ['M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z', 'M14 2v6h6', 'M16 13H8M16 17H8M10 9H8'] },
+  { label: 'Assessment Report', screen: 'report', icon: ['M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z', 'M14 2v6h6', 'M16 13H8M16 17H8M10 9H8'] },
+  { label: 'Assessment History', screen: 'history', icon: ['M12 8v4l3 3M12 2a10 10 0 100 20 10 10 0 000-20z'] },
   { label: 'Admin Panel', screen: 'admin', icon: ['M12 2L4 6v6c0 5.25 3.5 10.15 8 11.35C16.5 22.15 20 17.25 20 12V6l-8-4z'] },
   { label: 'Profile', screen: 'profile', icon: 'M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 7a4 4 0 100 8 4 4 0 000-8z' },
   { label: 'Logout', screen: null, icon: ['M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4', 'M16 17l5-5-5-5', 'M21 12H9'], isLogout: true },
@@ -99,7 +99,7 @@ export const Sidebar = ({ activeLabel, onNavigate, onLogout }) => {
       )}
 
       <aside style={{
-        width: '210px', flexShrink: 0,
+        width: '236px', flexShrink: 0,
         background: 'linear-gradient(180deg,#1e3a8a 0%,#1e2d6b 100%)',
         display: 'flex', flexDirection: 'column',
         boxShadow: '2px 0 12px rgba(0,0,0,0.18)'

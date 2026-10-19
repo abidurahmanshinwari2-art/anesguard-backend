@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Sidebar } from './sidebar';
 import { ArrowLeft, Download, Printer, Edit, User, Calendar, Heart, Activity, AlertTriangle, CheckCircle } from 'lucide-react';
 import { API_URL, authHeaders } from '../api/config';
+import { formatSavedDose } from './anesthesiaDrugs';
+import { downloadAssessmentPdf, printAssessmentPdf } from '../utils/reportFile';
 
 const PatientDetailsView = ({ onNavigate, patientId }) => {
   const [loading, setLoading] = useState(true);
@@ -37,10 +39,17 @@ const PatientDetailsView = ({ onNavigate, patientId }) => {
     }
   }, [patientId]);
 
+  const exportReport = (action) => {
+    if (!patient) return;
+    const fileName = `AnesGuard-${String(patient.patientName || 'assessment').replace(/[^\w]+/g, '-')}.pdf`;
+    if (action === 'download') downloadAssessmentPdf(patient, fileName);
+    else printAssessmentPdf(patient);
+  };
+
   if (loading) {
     return (
       <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f1f5f9' }}>
-        <Sidebar activeLabel="History" onNavigate={onNavigate} onLogout={() => onNavigate && onNavigate('login')} />
+        <Sidebar activeLabel="Assessment History" onNavigate={onNavigate} onLogout={() => onNavigate && onNavigate('login')} />
         <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ width: '40px', height: '40px', border: '4px solid #e5e7eb', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
@@ -54,7 +63,7 @@ const PatientDetailsView = ({ onNavigate, patientId }) => {
   if (!patient) {
     return (
       <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f1f5f9' }}>
-        <Sidebar activeLabel="History" onNavigate={onNavigate} onLogout={() => onNavigate && onNavigate('login')} />
+        <Sidebar activeLabel="Assessment History" onNavigate={onNavigate} onLogout={() => onNavigate && onNavigate('login')} />
         <main style={{ flex: 1, padding: '40px', textAlign: 'center' }}>
           <h2>Patient not found</h2>
           <button onClick={() => onNavigate && onNavigate('history')} style={{ marginTop: '16px', padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#2563eb', color: '#fff', cursor: 'pointer' }}>Back to History</button>
@@ -65,24 +74,18 @@ const PatientDetailsView = ({ onNavigate, patientId }) => {
 
   return (
     <div style={{ display: 'flex', height: '100vh', fontFamily: "'Segoe UI', sans-serif", backgroundColor: '#f1f5f9' }}>
-      <Sidebar activeLabel="History" onNavigate={onNavigate} onLogout={() => onNavigate && onNavigate('login')} />
+      <Sidebar activeLabel="Assessment History" onNavigate={onNavigate} onLogout={() => onNavigate && onNavigate('login')} />
       <main style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button onClick={() => onNavigate && onNavigate('history')}
-              style={{ padding: '8px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-              <ArrowLeft size={18} />
-            </button>
-            <div>
-              <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '800', color: '#1e293b' }}>Patient Details</h1>
-              <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Complete assessment report for {patient.patientName}</p>
-            </div>
-          </div>
+          <button onClick={() => onNavigate && onNavigate('history')}
+            style={{ padding: '8px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+            <ArrowLeft size={18} />
+          </button>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '13px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>
-              <Download size={16} /> Download
+            <button onClick={() => exportReport('download')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '13px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>
+              <Download size={16} /> Download PDF
             </button>
-            <button onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '13px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>
+            <button onClick={() => exportReport('print')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '13px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>
               <Printer size={16} /> Print
             </button>
             <button onClick={() => onNavigate && onNavigate('editAssessment', { id: patient._id })}
@@ -92,10 +95,15 @@ const PatientDetailsView = ({ onNavigate, patientId }) => {
           </div>
         </div>
 
+        <div style={{ backgroundColor: '#f1f5f9' }}>
+        <div style={{ marginBottom: '16px' }}>
+          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '800', color: '#1e293b' }}>Patient Details</h1>
+          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Complete assessment report for {patient.patientName}{patient.riskProfile?.surgeryName ? ` · ${patient.riskProfile.surgeryName}` : ''}{patient.asaClass ? ` · ${patient.asaClass}` : ''}</p>
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px', marginBottom: '20px' }}>
           {[
             { label: 'Risk Level', value: patient.riskLevel || 'Unknown', color: patient.riskLevel === 'High' ? '#dc2626' : patient.riskLevel === 'Moderate' ? '#d97706' : '#16a34a', icon: <AlertTriangle size={20} /> },
-            { label: 'Risk Score', value: `${patient.riskScore || 0}/12`, color: '#2563eb', icon: <Activity size={20} /> },
+            { label: 'Risk Score', value: `${patient.riskScore || 0}${patient.scoreBasis === 'guideline-index-100' ? '/100' : ''}`, color: '#2563eb', icon: <Activity size={20} /> },
             { label: 'Assessment Date', value: patient.createdAt ? new Date(patient.createdAt).toLocaleDateString() : '-', color: '#7c3aed', icon: <Calendar size={20} /> },
             { label: 'Status', value: patient.status || 'Pending', color: patient.status === 'Completed' ? '#16a34a' : '#d97706', icon: <CheckCircle size={20} /> },
           ].map(card => (
@@ -175,9 +183,9 @@ const PatientDetailsView = ({ onNavigate, patientId }) => {
               <h3 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>Dosage Summary</h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 {[
-                  { label: 'Selected Drug', value: 'Propofol (Induction)', color: '#2563eb' },
-                  { label: 'Calculated Dose', value: '140 mg', color: '#16a34a' },
-                  { label: 'Dose Range', value: '126 mg - 154 mg', color: '#d97706' },
+                  { label: 'Selected Drug', value: patient.drugSelected || 'Not saved yet', color: '#2563eb' },
+                  { label: 'Calculated Dose', value: formatSavedDose(patient.calculatedDose, patient.doseRange), color: '#16a34a' },
+                  { label: 'Dose Range', value: patient.doseRange || '—', color: '#d97706' },
                 ].map(dosage => (
                   <div key={dosage.label} style={{ padding: '10px 12px', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
                     <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>{dosage.label}</p>
@@ -217,16 +225,13 @@ const PatientDetailsView = ({ onNavigate, patientId }) => {
             <div>
               <p style={{ margin: 0, fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Recommendations</p>
               <ul style={{ margin: '8px 0 0', paddingLeft: '18px' }}>
-                {[
-                  'Thorough pre-anesthesia evaluation recommended.',
-                  'Optimize comorbid conditions before surgery.',
-                  'Consider additional monitoring.'
-                ].map((rec, index) => (
+                {(patient.recommendations?.length ? patient.recommendations : ['No recommendations saved for this case.']).map((rec, index) => (
                   <li key={index} style={{ fontSize: '13px', color: '#475569', marginBottom: '4px' }}>{rec}</li>
                 ))}
               </ul>
             </div>
           </div>
+        </div>
         </div>
 
         <button onClick={() => onNavigate && onNavigate('history')} style={{ padding: '10px 28px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '14px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>

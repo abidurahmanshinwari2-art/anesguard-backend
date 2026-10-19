@@ -5,6 +5,7 @@ const settingsSchema = new mongoose.Schema({
   general: { type: Object, default: {} },
   security: { type: Object, default: {} },
   notifications: { type: Object, default: {} },
+  accessRules: { type: Array },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Settings', settingsSchema);

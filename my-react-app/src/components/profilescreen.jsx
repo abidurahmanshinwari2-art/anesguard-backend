@@ -82,6 +82,7 @@ const ProfileScreen = ({ onNavigate }) => {
     try {
       const result = await updateMe({
         fullName: editForm.fullName,
+        email: editForm.email,
         phone: editForm.phone,
         department: editForm.department,
         employeeId: editForm.employeeId,
@@ -303,13 +304,13 @@ const ProfileScreen = ({ onNavigate }) => {
             onBlur={e => e.target.style.borderColor = '#d1d5db'}
           >
             <option value="">Select Department</option>
-            <option value="cardiology">Cardiology</option>
-            <option value="neurology">Neurology</option>
-            <option value="pediatrics">Pediatrics</option>
-            <option value="orthopedics">Orthopedics</option>
-            <option value="radiology">Radiology</option>
-            <option value="emergency">Emergency Medicine</option>
-            <option value="surgery">Surgery</option>
+            <option value="Cardiology">Cardiology</option>
+            <option value="Neurology">Neurology</option>
+            <option value="Pediatrics">Pediatrics</option>
+            <option value="Orthopedics">Orthopedics</option>
+            <option value="Radiology">Radiology</option>
+            <option value="Emergency Medicine">Emergency Medicine</option>
+            <option value="Surgery">Surgery</option>
           </select>
         ) : (
           <input

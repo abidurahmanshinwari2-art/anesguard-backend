@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './sidebar';
-import { Search, Eye, Edit, Trash2, Download, Printer } from 'lucide-react';
+import { Search, Eye, Edit, Trash2, Download } from 'lucide-react';
 import { API_URL, authHeaders } from '../api/config';
 
-const AssessmentHistory = ({ onNavigate }) => {
+const AssessmentHistory = ({ onNavigate, initialRisk = 'all' }) => {
   const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterRisk, setFilterRisk] = useState('all');
+  const [filterRisk, setFilterRisk] = useState(initialRisk);
 
   useEffect(() => {
     const fetchAssessments = async () => {
@@ -33,6 +33,10 @@ const AssessmentHistory = ({ onNavigate }) => {
 
     fetchAssessments();
   }, []);
+
+  useEffect(() => {
+    setFilterRisk(initialRisk || 'all');
+  }, [initialRisk]);
 
   const getRiskColor = (risk) => {
     const colors = { Low: '#16a34a', Moderate: '#d97706', High: '#dc2626' };
@@ -85,7 +89,7 @@ const AssessmentHistory = ({ onNavigate }) => {
 
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f1f5f9' }}>
-      <Sidebar activeLabel="History" onNavigate={onNavigate} onLogout={() => onNavigate && onNavigate('login')} />
+      <Sidebar activeLabel="Assessment History" onNavigate={onNavigate} onLogout={() => onNavigate && onNavigate('login')} />
       <main style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
           <div>
@@ -95,9 +99,6 @@ const AssessmentHistory = ({ onNavigate }) => {
           <div style={{ display: 'flex', gap: '10px' }}>
             <button onClick={exportCsv} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '13px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>
               <Download size={16} /> Export CSV
-            </button>
-            <button onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '13px', fontWeight: '600', color: '#374151', cursor: 'pointer' }}>
-              <Printer size={16} /> Print
             </button>
           </div>
         </div>

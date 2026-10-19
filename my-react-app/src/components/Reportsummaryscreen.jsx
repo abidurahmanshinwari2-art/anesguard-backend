@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './sidebar';
 import { API_URL, authHeaders } from '../api/config';
+import { formatSavedDose } from './anesthesiaDrugs';
+import { downloadAssessmentPdf, printAssessmentPdf } from '../utils/reportFile';
 
 const PieChart = ({ low = 0, moderate = 0, high = 0 }) => {
   const total = low + moderate + high;
@@ -139,20 +141,37 @@ const ReportSummaryScreen = ({ assessmentId, onBackToDashboard, onNavigate }) =>
     return acc;
   }, {});
   const months = Object.entries(monthCounts).slice(-5).map(([label, value]) => ({ label, value }));
+  const fileName = `AnesGuard-${String(latestAssessment?.patientName || 'assessment').replace(/[^\w]+/g, '-')}.pdf`;
+
+  const downloadPdf = () => {
+    if (!latestAssessment) return;
+    downloadAssessmentPdf(latestAssessment, fileName, stats);
+  };
+
+  const printPdf = () => {
+    if (!latestAssessment) return;
+    printAssessmentPdf(latestAssessment, stats);
+  };
 
   return (
     <div style={{ display: 'flex', height: '100vh', fontFamily: "'Segoe UI', sans-serif", backgroundColor: '#f1f5f9' }}>
-      <Sidebar activeLabel="Reports" onNavigate={onNavigate} onLogout={() => onNavigate && onNavigate('login')} />
+      <Sidebar activeLabel="Assessment Report" onNavigate={onNavigate} onLogout={() => onNavigate && onNavigate('login')} />
       <main style={{ flex: 1, overflowY: 'auto', padding: '26px 28px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', marginBottom: '20px' }}>
           <div>
             <h1 style={{ margin: '0 0 2px', fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>Assessment Report</h1>
             <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Summary of patient assessment</p>
           </div>
-          <button style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '9px 18px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 3px 10px rgba(37,99,235,0.3)', whiteSpace: 'nowrap' }}>
-            <DownloadIcon /> Download PDF
-          </button>
+          <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
+            <button type="button" onClick={printPdf} disabled={loading || !latestAssessment} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '9px 18px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', color: '#374151', fontSize: '13px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              Print
+            </button>
+            <button type="button" onClick={downloadPdf} disabled={loading || !latestAssessment} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '9px 18px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 3px 10px rgba(37,99,235,0.3)', whiteSpace: 'nowrap' }}>
+              <DownloadIcon /> Download PDF
+            </button>
+          </div>
         </div>
+        <div>
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: '60px' }}>
@@ -174,7 +193,9 @@ const ReportSummaryScreen = ({ assessmentId, onBackToDashboard, onNavigate }) =>
               <div style={{ backgroundColor: '#fff', border: '1.5px solid #e5e7eb', borderRadius: '10px', padding: '16px 18px' }}>
                 <p style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>Risk Summary</p>
                 <SummaryRow label="Risk Level" value={latestAssessment?.riskLevel || 'No data'} valueStyle={{ color: latestAssessment?.riskLevel === 'High' ? '#ef4444' : latestAssessment?.riskLevel === 'Moderate' ? '#d97706' : '#16a34a' }} />
-                <SummaryRow label="Risk Score" value={latestAssessment ? `${latestAssessment.riskScore || 0} / 12` : 'No data'} valueStyle={{ fontWeight: '800' }} />
+                <SummaryRow label="Risk Score" value={latestAssessment ? `${latestAssessment.riskScore || 0}${latestAssessment.scoreBasis === 'guideline-index-100' ? ' / 100' : ''}` : 'No data'} valueStyle={{ fontWeight: '800' }} />
+                <SummaryRow label="Surgery" value={latestAssessment?.riskProfile?.surgeryName || 'Not recorded'} />
+                <SummaryRow label="ASA class" value={latestAssessment?.asaClass || 'Not recorded'} />
                 <p style={{ margin: '10px 0 6px', fontSize: '12px', fontWeight: '600', color: '#374151' }}>Key Risk Factors</p>
                 {(latestAssessment?.riskFactors || ['No risk factors']).map((factor, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
@@ -187,7 +208,7 @@ const ReportSummaryScreen = ({ assessmentId, onBackToDashboard, onNavigate }) =>
               <div style={{ backgroundColor: '#fff', border: '1.5px solid #e5e7eb', borderRadius: '10px', padding: '16px 18px' }}>
                 <p style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>Dosage Summary</p>
                 <SummaryRow label="Selected Drug" value={latestAssessment?.drugSelected || 'Not saved yet'} />
-                <SummaryRow label="Calculated Dose" value={latestAssessment?.calculatedDose != null ? `${latestAssessment.calculatedDose} mg` : '—'} valueStyle={{ color: '#16a34a', fontWeight: '800' }} />
+                <SummaryRow label="Calculated Dose" value={formatSavedDose(latestAssessment?.calculatedDose, latestAssessment?.doseRange)} valueStyle={{ color: '#16a34a', fontWeight: '800' }} />
                 <SummaryRow label="Dose Range" value={latestAssessment?.doseRange || '—'} valueStyle={{ color: '#2563eb', fontWeight: '700' }} />
                 <div style={{ marginTop: '14px', padding: '10px 12px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '7px' }}>
                   <p style={{ margin: 0, fontSize: '11.5px', color: '#dc2626', fontWeight: '600', lineHeight: '1.5' }}>
@@ -216,6 +237,7 @@ const ReportSummaryScreen = ({ assessmentId, onBackToDashboard, onNavigate }) =>
             </div>
           </>
         )}
+        </div>
 
         <button onClick={onBackToDashboard}
           style={{ padding: '10px 28px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', fontSize: '14px', fontWeight: '600', color: '#374151', cursor: 'pointer', transition: 'all 0.15s' }}

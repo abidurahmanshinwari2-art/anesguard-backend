@@ -10,8 +10,15 @@ const getMe = async (req, res) => {
 
 const updateMe = async (req, res, next) => {
   try {
-    const { fullName, phone, department, employeeId, photoURL } = req.body;
+    const { fullName, phone, department, employeeId, photoURL, email } = req.body;
     if (fullName !== undefined) req.user.fullName = String(fullName).trim();
+    if (email !== undefined) {
+      const nextEmail = String(email).toLowerCase().trim();
+      if (!nextEmail) return res.status(400).json({ success: false, message: 'Email is required' });
+      const taken = await User.findOne({ email: nextEmail, _id: { $ne: req.user._id }, isDeleted: { $ne: true } });
+      if (taken) return res.status(400).json({ success: false, message: 'A user with this email already exists' });
+      req.user.email = nextEmail;
+    }
     if (phone !== undefined) req.user.phone = phone;
     if (department !== undefined) req.user.department = normalizeDepartment(department);
     if (employeeId !== undefined) {
@@ -119,9 +126,51 @@ const updateUserStatus = async (req, res, next) => {
 
     const user = await User.findOne({ _id: req.params.id, isDeleted: { $ne: true } });
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (guardSuperAdmin(req.user, user)) {
+      return res.status(403).json({ success: false, message: 'Only a Super Admin can change that account' });
+    }
 
     const nextStatus = req.body.status === 'Inactive' ? 'Inactive' : 'Active';
     user.status = nextStatus;
+    await user.save();
+    res.json({ success: true, user: publicUser(user) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const guardSuperAdmin = (actor, target) => (
+  target.role === 'Super Admin' && actor.role !== 'Super Admin'
+);
+
+const updateUser = async (req, res, next) => {
+  try {
+    const user = await User.findOne({ _id: req.params.id, isDeleted: { $ne: true } });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (guardSuperAdmin(req.user, user)) {
+      return res.status(403).json({ success: false, message: 'Only a Super Admin can edit that account' });
+    }
+
+    const { fullName, role, department, phone } = req.body || {};
+    if (fullName !== undefined) {
+      const name = String(fullName).trim();
+      if (!name) return res.status(400).json({ success: false, message: 'Name is required' });
+      user.fullName = name;
+    }
+    if (role !== undefined) {
+      if (!ROLES.includes(role)) {
+        return res.status(400).json({ success: false, message: 'Invalid role' });
+      }
+      if (String(user._id) === String(req.user._id) && role !== user.role) {
+        return res.status(400).json({ success: false, message: 'You cannot change your own role' });
+      }
+      if (role === 'Super Admin' && req.user.role !== 'Super Admin') {
+        return res.status(403).json({ success: false, message: 'Only a Super Admin can assign that role' });
+      }
+      user.role = role;
+    }
+    if (department !== undefined) user.department = normalizeDepartment(department);
+    if (phone !== undefined) user.phone = String(phone);
     await user.save();
     res.json({ success: true, user: publicUser(user) });
   } catch (err) {
@@ -137,6 +186,9 @@ const deleteUser = async (req, res, next) => {
 
     const user = await User.findOne({ _id: req.params.id, isDeleted: { $ne: true } });
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (guardSuperAdmin(req.user, user)) {
+      return res.status(403).json({ success: false, message: 'Only a Super Admin can delete that account' });
+    }
 
     user.isDeleted = true;
     user.status = 'Inactive';
@@ -154,6 +206,7 @@ module.exports = {
   changePassword,
   getAllUsers,
   createUser,
+  updateUser,
   updateUserStatus,
   deleteUser,
 };

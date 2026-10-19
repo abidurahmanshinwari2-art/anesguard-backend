@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const { signToken } = require('../utils/generateToken');
+const { sessionMinutes } = require('../utils/sessionTimeout');
 
 const DEPARTMENTS = [
   'Cardiology',
@@ -124,9 +125,11 @@ const login = async (req, res, next) => {
     user.lastLogin = new Date();
     await user.save();
 
+    const minutes = await sessionMinutes();
     res.json({
       success: true,
-      token: signToken(user._id),
+      token: signToken(user._id, `${minutes}m`),
+      sessionTimeoutMinutes: minutes,
       user: publicUser(user),
     });
   } catch (err) {

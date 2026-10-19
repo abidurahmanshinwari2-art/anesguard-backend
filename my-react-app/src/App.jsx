@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { clearSession, sessionHasExpired } from './utils/sessionClock';
 import LoginScreen from "./components/LoginScreen";
 import SignupScreen from "./components/SignupScreen";
 import StudentDashboard from "./components/Dashboard";  // ✅ Fixed - now matches file name
@@ -21,6 +22,19 @@ const App = () => {
     setParams(p);
   };
 
+  useEffect(() => {
+    if (screen === 'login' || screen === 'signup') return undefined;
+    const tick = () => {
+      if (sessionHasExpired()) {
+        clearSession();
+        go('login');
+      }
+    };
+    tick();
+    const timer = window.setInterval(tick, 5000);
+    return () => window.clearInterval(timer);
+  }, [screen]);
+
   return (
     <>
       {screen === 'login'            && <LoginScreen            onLoginSuccess={() => go('dashboard')}           onSwitchToSignup={() => go('signup')} />}
@@ -32,7 +46,7 @@ const App = () => {
       {screen === 'report'           && <ReportSummaryScreen    assessmentId={params.id} onBackToDashboard={() => go('dashboard')} onNavigate={go} />}
       {screen === 'profile'          && <ProfileScreen          onNavigate={go} />}
       {screen === 'admin'            && <AdminPanel             onNavigate={go} />}
-      {screen === 'history'          && <AssessmentHistory      onNavigate={go} />}
+      {screen === 'history'          && <AssessmentHistory      onNavigate={go} initialRisk={params.risk || 'all'} />}
       {screen === 'patientDetails'   && <PatientDetailsView     onNavigate={go} patientId={params.id} />}
       {screen === 'editAssessment'   && <EditAssessment         onNavigate={go} assessmentId={params.id} />}
     </>

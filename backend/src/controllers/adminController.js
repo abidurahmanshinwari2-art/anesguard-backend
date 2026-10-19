@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Assessment = require('../models/Assessment');
 const Settings = require('../models/Settings');
+const { loadAccessRules, validateAccessRules } = require('../utils/accessRules');
 
 const DEFAULT_SETTINGS = {
   general: {
@@ -75,7 +76,7 @@ const getRecentActivity = async (req, res, next) => {
       .sort({ updatedAt: -1 })
       .limit(limit)
       .populate('createdBy', 'fullName email')
-      .select('patientName riskLevel status createdAt updatedAt createdBy drugSelected');
+      .select('patientName age gender surgeryType riskLevel riskScore status createdAt updatedAt createdBy drugSelected asaClass riskProfile.surgeryName');
     res.json(recent);
   } catch (err) {
     next(err);
@@ -107,14 +108,15 @@ const updateSettings = async (req, res, next) => {
       {
         $set: {
           general: {
-            systemName: general.systemName || DEFAULT_SETTINGS.general.systemName,
+            systemName: 'AnesGuard',
             systemVersion: general.systemVersion || DEFAULT_SETTINGS.general.systemVersion,
+            country: general.country || '',
             timezone: general.timezone || DEFAULT_SETTINGS.general.timezone,
             dateFormat: general.dateFormat || DEFAULT_SETTINGS.general.dateFormat,
-            language: general.language || DEFAULT_SETTINGS.general.language,
+            language: 'English',
           },
           security: {
-            sessionTimeout: String(security.sessionTimeout || DEFAULT_SETTINGS.security.sessionTimeout),
+            sessionTimeout: String(Math.min(1440, Math.max(1, Math.round(Number(security.sessionTimeout) || Number(DEFAULT_SETTINGS.security.sessionTimeout))))),
             passwordPolicy: security.passwordPolicy || DEFAULT_SETTINGS.security.passwordPolicy,
           },
           notifications: {
@@ -143,4 +145,54 @@ const updateSettings = async (req, res, next) => {
   }
 };
 
-module.exports = { getSystemOverview, getRecentActivity, getSettings, updateSettings };
+const getAccessRules = async (req, res, next) => {
+  try {
+    const rules = await loadAccessRules();
+    res.json({ success: true, rules });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const saveAccessRules = async (req, res, next) => {
+  try {
+    const rules = (req.body?.rules || []).map((rule, index) => ({
+      id: String(rule.id || `rule-${Date.now()}-${index}`),
+      resource: rule.resource,
+      role: String(rule.role || '').trim(),
+      access: rule.access,
+      status: rule.status,
+    }));
+    const error = validateAccessRules(rules);
+    if (error) return res.status(400).json({ success: false, message: error });
+
+    await Settings.findOneAndUpdate(
+      { key: 'system' },
+      { $set: { accessRules: rules } },
+      { upsert: true, setDefaultsOnInsert: true }
+    );
+    res.json({ success: true, rules });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const deleteAssessment = async (req, res, next) => {
+  try {
+    const deleted = await Assessment.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ success: false, message: 'Assessment not found' });
+    res.json({ success: true, message: 'Assessment deleted', id: req.params.id });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  getSystemOverview,
+  getRecentActivity,
+  getSettings,
+  updateSettings,
+  getAccessRules,
+  saveAccessRules,
+  deleteAssessment,
+};

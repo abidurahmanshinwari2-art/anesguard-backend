@@ -35,6 +35,11 @@ export const createUser = async (payload) => {
   return data;
 };
 
+export const updateUser = async (id, payload) => {
+  const { data } = await axiosClient.patch(`/users/${id}`, payload);
+  return data;
+};
+
 export const updateUserStatus = async (id, status) => {
   const { data } = await axiosClient.patch(`/users/${id}/status`, { status });
   return data;

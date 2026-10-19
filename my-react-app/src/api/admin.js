@@ -19,3 +19,18 @@ export const saveSettings = async (settings) => {
   const { data } = await axiosClient.put('/admin/settings', settings);
   return data;
 };
+
+export const getAccessRules = async () => {
+  const { data } = await axiosClient.get('/admin/access-rules');
+  return data;
+};
+
+export const saveAccessRules = async (rules) => {
+  const { data } = await axiosClient.put('/admin/access-rules', { rules });
+  return data;
+};
+
+export const deleteAdminAssessment = async (id) => {
+  const { data } = await axiosClient.delete(`/admin/assessments/${id}`);
+  return data;
+};
