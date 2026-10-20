@@ -118,12 +118,24 @@ const login = async (req, res, next) => {
       }
     }
 
-    user.role = normalizeRole(user.role);
-    user.department = normalizeDepartment(user.department);
-    if (!user.fullName) user.fullName = String(email).split('@')[0];
-    if (!user.status || !['Active', 'Inactive', 'Pending'].includes(user.status)) user.status = 'Active';
-    user.lastLogin = new Date();
-    await user.save();
+    const nextRole = normalizeRole(user.role);
+    const nextDepartment = normalizeDepartment(user.department);
+    const nextName = user.fullName || String(email).split('@')[0];
+    const nextStatus = ['Active', 'Inactive', 'Pending'].includes(user.status) ? user.status : 'Active';
+    await User.updateOne({ _id: user._id }, {
+      $set: {
+        role: nextRole,
+        department: nextDepartment,
+        fullName: nextName,
+        status: nextStatus,
+        lastLogin: new Date(),
+        ...(!storedPassword ? { password: user.password } : {}),
+      },
+    });
+    user.role = nextRole;
+    user.department = nextDepartment;
+    user.fullName = nextName;
+    user.status = nextStatus;
 
     const minutes = await sessionMinutes();
     res.json({

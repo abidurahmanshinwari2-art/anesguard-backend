@@ -51,9 +51,9 @@ const LoginScreen = ({ onSwitchToSignup, onLoginSuccess }) => {
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
-      if (data.success) {
+      if (response.ok && data.success) {
         // ✅ Save token
         localStorage.setItem('token', data.token);
         startSessionClock(data.sessionTimeoutMinutes);
@@ -82,7 +82,7 @@ const LoginScreen = ({ onSwitchToSignup, onLoginSuccess }) => {
     } catch (error) {
       console.error('Login error:', error);
       setLoading(false);
-      setAuthError('Login failed. Please try again.');
+      setAuthError('The AnesGuard server did not respond. Wait a few seconds and try the same email and password again.');
     }
   };
 
