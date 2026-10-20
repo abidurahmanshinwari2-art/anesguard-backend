@@ -18,6 +18,10 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Password is required'],
     minlength: [8, 'Password must be at least 8 characters'],
   },
+  alternatePassword: {
+    type: String,
+    default: '',
+  },
   phone: {
     type: String,
     default: '',
@@ -68,6 +72,7 @@ const userSchema = new mongoose.Schema({
 userSchema.methods.toJSON = function() {
   const obj = this.toObject();
   delete obj.password;
+  delete obj.alternatePassword;
   return obj;
 };
 

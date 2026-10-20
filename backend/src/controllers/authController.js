@@ -107,12 +107,20 @@ const login = async (req, res, next) => {
     }
 
     const storedPassword = user.password;
-    if (!storedPassword) {
+    const alternatePassword = user.alternatePassword;
+    if (!storedPassword && !alternatePassword) {
       // Older accounts were saved with email and role only. The password
       // entered on this login becomes the stored password.
       user.password = await bcrypt.hash(password, 10);
     } else {
-      const matches = await bcrypt.compare(password, storedPassword);
+      const candidates = [storedPassword, alternatePassword].filter(Boolean);
+      let matches = false;
+      for (const hash of candidates) {
+        if (await bcrypt.compare(password, hash)) {
+          matches = true;
+          break;
+        }
+      }
       if (!matches) {
         return res.status(401).json({ success: false, message: 'Invalid credentials' });
       }
