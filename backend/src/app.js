@@ -53,8 +53,20 @@ app.use(
   })
 );
 
+app.get('/', (req, res) => {
+  res.redirect(302, 'https://anesguard.web.app');
+});
+
+app.get('/api', (req, res) => {
+  res.json({
+    name: 'AnesGuard API',
+    website: 'https://anesguard.web.app',
+    health: '/api/health',
+  });
+});
+
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', website: 'https://anesguard.web.app', timestamp: new Date().toISOString() });
 });
 
 app.use('/api/auth', authRoutes);
