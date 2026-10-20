@@ -104,7 +104,7 @@ const createAssessment = async (req, res, next) => {
 const getAssessments = async (req, res, next) => {
   try {
     const { search = '', riskLevel, sortBy = 'createdAt', order = 'desc', page = 1, limit = 20 } = req.query;
-    const query = { createdBy: req.user._id };
+    const query = ADMIN_ROLES.includes(req.user.role) ? {} : { createdBy: req.user._id };
 
     if (search) query.patientName = { $regex: search, $options: 'i' };
     if (riskLevel && riskLevel !== 'all') query.riskLevel = riskLevel;
@@ -227,7 +227,7 @@ const bulkDeleteAssessments = async (req, res, next) => {
 
 const getStatsSummary = async (req, res, next) => {
   try {
-    const match = { createdBy: req.user._id };
+    const match = ADMIN_ROLES.includes(req.user.role) ? {} : { createdBy: req.user._id };
     const [total, low, moderate, high, pending, completed] = await Promise.all([
       Assessment.countDocuments(match),
       Assessment.countDocuments({ ...match, riskLevel: 'Low' }),

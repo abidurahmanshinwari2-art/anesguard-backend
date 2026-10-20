@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -66,7 +67,13 @@ app.get('/api', (req, res) => {
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', website: 'https://anesguard.web.app', timestamp: new Date().toISOString() });
+  const db = mongoose.connection;
+  res.json({
+    status: db.readyState === 1 ? 'ok' : 'disconnected',
+    database: db.name || '',
+    website: 'https://anesguard.web.app',
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.use('/api/auth', authRoutes);

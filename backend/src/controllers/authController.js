@@ -122,16 +122,20 @@ const login = async (req, res, next) => {
     const nextDepartment = normalizeDepartment(user.department);
     const nextName = user.fullName || String(email).split('@')[0];
     const nextStatus = ['Active', 'Inactive', 'Pending'].includes(user.status) ? user.status : 'Active';
-    await User.updateOne({ _id: user._id }, {
-      $set: {
-        role: nextRole,
-        department: nextDepartment,
-        fullName: nextName,
-        status: nextStatus,
-        lastLogin: new Date(),
-        ...(!storedPassword ? { password: user.password } : {}),
-      },
-    });
+    try {
+      await User.updateOne({ _id: user._id }, {
+        $set: {
+          role: nextRole,
+          department: nextDepartment,
+          fullName: nextName,
+          status: nextStatus,
+          lastLogin: new Date(),
+          ...(!storedPassword ? { password: user.password } : {}),
+        },
+      });
+    } catch (updateError) {
+      console.error('Login continued without a profile update:', updateError.message);
+    }
     user.role = nextRole;
     user.department = nextDepartment;
     user.fullName = nextName;
